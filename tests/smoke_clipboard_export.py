@@ -17,6 +17,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--port', type=int, default=17980)
     parser.add_argument('--runtime', type=Path, required=True)
+    parser.add_argument('--titlebar', action='store_true')
     args = parser.parse_args()
     runtime = args.runtime.resolve()
     exchange = runtime / 'exchange'
@@ -43,8 +44,22 @@ def main():
         menus = menus.get('items', menus.get('menus', []))
     item = next(m for m in menus if m.get('id') == 'file.export.clipboard')
     assert item['enabled'], item
-    result = client.call('ui.menu.invoke', id='file.export.clipboard')
-    assert result == {'width': 320, 'height': 200, 'copied': True}, result
+    if args.titlebar:
+        import ctypes
+        user32 = ctypes.windll.user32
+        assert user32.OpenClipboard(None), 'Clipboard is busy before button test'
+        try:
+            assert user32.EmptyClipboard(), 'Could not clear test clipboard'
+        finally:
+            user32.CloseClipboard()
+        button = client.call('ui.inspect')['clipboardExport']
+        assert button and button['enabled'], button
+        x, y, w, h = button['rect']
+        client.call('ui.click', x=x+w/2, y=y+h/2)
+        result = {'trigger': 'titlebar', 'button': button}
+    else:
+        result = client.call('ui.menu.invoke', id='file.export.clipboard')
+        assert result == {'width': 320, 'height': 200, 'copied': True}, result
     copied = None
     for _ in range(10):
         copied = ImageGrab.grabclipboard()

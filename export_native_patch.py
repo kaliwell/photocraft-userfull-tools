@@ -17,6 +17,7 @@ patch = subprocess.check_output(['git', 'diff', '--binary', 'HEAD', '--',
     'crates/ui-egui/src/app/clipboard.rs', 'crates/ui-egui/src/app/clipboard_tests.rs',
     'crates/ui-egui/src/app/commands.rs', 'crates/ui-egui/src/menu_catalog.rs',
     'crates/ui-egui/src/menus/state.rs', 'crates/ui-egui/src/i18n/zh-hans.tsv',
+    'crates/ui-egui/src/panels/title_bar.rs',
     'crates/ui-egui/src/i18n/zh-hant.tsv', 'docs/control-protocol.md',
     'docs/parity-checklist.md', 'crates/automation/src/workspace.rs',
     'crates/automation/src/workspace/tests.rs'], cwd=source)

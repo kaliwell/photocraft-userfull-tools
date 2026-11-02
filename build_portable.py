@@ -6,7 +6,7 @@ import shutil
 import zipfile
 
 ROOT = Path(__file__).resolve().parent
-VERSION = '0.2.10'
+VERSION = '0.2.11'
 output = ROOT / f'dist/photocraft-codex-ai-{VERSION}-windows-x64-local-node'
 output.mkdir(parents=True, exist_ok=False)
 python = output / 'python'
@@ -35,6 +35,7 @@ command = '@echo off\r\nchcp 65001 >nul\r\ncd /d "%~dp0"\r\n"%~dp0python\\python
     '3. 双击 start.cmd，首次按提示登录自己的 Codex 账号。\n'
     '4. 打开图片并框选，选区下方即可使用 AI。包内已提供 Python，无需另外安装。\n\n'
     '5. 文件 -> 导出 -> 导出到剪贴板：复制整张画布的可见合成图，在其他软件 Ctrl+V 粘贴，无需导出到文件夹。\n'
+    'Title-bar Copy image: copy the full canvas directly.\n'
     'File -> Export -> Export to Clipboard: copy the full visible canvas, then paste into another app. No export file is created.\n'
     '需要网络及支持内置生图的 Codex 账号。包内不含任何账号登录信息。\n'
     '需要代理时：创建 runtime 文件夹，将 proxy-example.json 复制为 runtime/codex-proxy.json，修改为自己的 HTTP/混合端口。\n'

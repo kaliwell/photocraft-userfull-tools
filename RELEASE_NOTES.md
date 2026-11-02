@@ -1,4 +1,8 @@
-# PhotoCraft Codex AI v0.2.10 · 导出到剪贴板 / Export to Clipboard
+# PhotoCraft Codex AI v0.2.11 · 顶部复制图片 / Title-bar Copy image
+
+顶部标题栏月亮图标左侧新增“复制图片”按钮，直接调用现有的完整画布剪贴板导出功能。无文档或系统图片剪贴板不可用时禁用；窗口过窄时隐藏按钮，仍可从文件导出菜单使用。
+
+Adds a Copy image button immediately before the appearance icon in the title bar. It uses the existing full-canvas clipboard export, is disabled without an open document or image clipboard service, and hides on narrow windows while remaining available in the File export menu.
 
 ## 中文
 

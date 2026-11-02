@@ -1,5 +1,10 @@
 # PhotoCraft 原生集成源码
 
+开发版 0.2.11 在顶部标题栏的外观图标左侧增加“复制图片”按钮，复用 `file.export.clipboard`。
+`ui.inspect.clipboardExport` 报告其屏幕坐标和启用状态；窗口过窄时按钮隐藏，无文档时禁用。
+Development preview 0.2.11 adds a Copy image button before the appearance control in the title bar.
+It reuses the existing export command; `ui.inspect.clipboardExport` exposes its rectangle and enabled state.
+
 基线：`storytold/photocraft`，版本 0.18.0，提交
 `422ca7beda90d927643bcd074646ebbd37706d75`。
 

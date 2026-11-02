@@ -789,7 +789,7 @@ index 0000000..32facf4
 +    }
 +}
 diff --git a/crates/ui-egui/src/control/inspect.rs b/crates/ui-egui/src/control/inspect.rs
-index 9b2140d..09b78e5 100644
+index 9b2140d..9ab45d4 100644
 --- a/crates/ui-egui/src/control/inspect.rs
 +++ b/crates/ui-egui/src/control/inspect.rs
 @@ -29,7 +29,7 @@ pub fn inspect(app: &PhotocraftApp, ctx: &egui::Context) -> Value {
@@ -801,7 +801,7 @@ index 9b2140d..09b78e5 100644
          "window": {"width": screen.width(), "height": screen.height(), "pixelsPerPoint": ctx.pixels_per_point()},
          "tool": app.ui.tool,
          "toolOptions": app.ui.tool_options,
-@@ -115,7 +115,11 @@ pub fn inspect(app: &PhotocraftApp, ctx: &egui::Context) -> Value {
+@@ -115,7 +115,18 @@ pub fn inspect(app: &PhotocraftApp, ctx: &egui::Context) -> Value {
          "jobs": crate::jobs_ui::inspect(app),
          "histogram": crate::histogram_panel::inspect(app),
          "cameraRaw": app.camera_raw.as_ref().map(|d| d.describe(&app.ui.camera_raw_scope, &app.ui.camera_raw_preview)),
@@ -809,18 +809,27 @@ index 9b2140d..09b78e5 100644
 +    });
 +    if let Some(object) = state.as_object_mut() {
 +        object.insert("codexAI".into(), crate::codex_ai::inspect(ctx));
++        object.insert(
++            "clipboardExport".into(),
++            crate::panels::title_bar::clipboard_button_rect(ctx).map_or(
++                Value::Null,
++                |r| json!({"rect":[r.min.x,r.min.y,r.width(),r.height()],"enabled":crate::menus::is_enabled(app,"file.export.clipboard")}),
++            ),
++        );
 +    }
 +    state
  }
  
  pub fn save_screenshot(app: &mut PhotocraftApp, image: &egui::ColorImage, path: Option<&str>) -> Value {
 diff --git a/crates/ui-egui/src/i18n/zh-hans.tsv b/crates/ui-egui/src/i18n/zh-hans.tsv
-index 0c1b3f4..469d34b 100644
+index 0c1b3f4..9e58849 100644
 --- a/crates/ui-egui/src/i18n/zh-hans.tsv
 +++ b/crates/ui-egui/src/i18n/zh-hans.tsv
-@@ -1,4 +1,8 @@
+@@ -1,4 +1,10 @@
  # Simplified Chinese (zh-hans) catalog. UTF-8, TAB-separated columns:
 +@id	file.export.clipboard	导出到剪贴板
++	Copy image	复制图片
++	Copy full canvas to clipboard	复制整张画布到剪贴板
 +	Export to Clipboard	导出到剪贴板
 +	Image copied to clipboard	图片已复制到剪贴板
 +	System image clipboard is unavailable	系统图片剪贴板不可用
@@ -828,15 +837,17 @@ index 0c1b3f4..469d34b 100644
  #
  # Empty context: plain UI text. @id: stable command ID. @plural: one|other source
 diff --git a/crates/ui-egui/src/i18n/zh-hant.tsv b/crates/ui-egui/src/i18n/zh-hant.tsv
-index 10de209..70b750a 100644
+index 10de209..2627d0b 100644
 --- a/crates/ui-egui/src/i18n/zh-hant.tsv
 +++ b/crates/ui-egui/src/i18n/zh-hant.tsv
-@@ -3143,3 +3143,8 @@ curves	Smooth	平滑
+@@ -3143,3 +3143,10 @@ curves	Smooth	平滑
  	Select and Mask was closed: another layer was selected	已關閉「選取並遮住」：已選取另一個圖層
  	Drag to move the selected path	拖曳以移動選取的路徑
  	Edit Brush…	編輯筆刷…
 +# Clipboard export
 +@id	file.export.clipboard	匯出到剪貼簿
++	Copy image	複製圖片
++	Copy full canvas to clipboard	複製整張畫布到剪貼簿
 +	Export to Clipboard	匯出到剪貼簿
 +	Image copied to clipboard	圖片已複製到剪貼簿
 +	System image clipboard is unavailable	系統圖片剪貼簿無法使用
@@ -1004,6 +1015,122 @@ index a7ab70a..3acdcc9 100644
  #[test]
  fn mask_toggle_label_follows_history_and_selected_layer() {
      let mut s = photocraft_engine::Session::new();
+diff --git a/crates/ui-egui/src/panels/title_bar.rs b/crates/ui-egui/src/panels/title_bar.rs
+index 6586b98..ff20469 100644
+--- a/crates/ui-egui/src/panels/title_bar.rs
++++ b/crates/ui-egui/src/panels/title_bar.rs
+@@ -8,6 +8,7 @@ use super::{PhotocraftApp, Sense, Tokens, icons, theme, vec2, widgets};
+ /// title bar (Windows and Linux, `system_title_bar`) the OS draws its own icon and title, so the
+ /// in-app bar shows menus and workspace controls only: no brand mark, no centred title.
+ pub fn title_bar(app: &mut PhotocraftApp, ui: &mut egui::Ui) {
++    ui.ctx().data_mut(|d| d.remove::<egui::Rect>(clipboard_button_id()));
+     let t = Tokens::get(ui.ctx());
+     let custom = app.custom_titlebar;
+     let system = system_title_bar(app);
+@@ -94,14 +95,16 @@ pub fn title_bar(app: &mut PhotocraftApp, ui: &mut egui::Ui) {
+                     // (Preferences), then search (Edit › Search), and narrows the switcher
+                     // (Window › Workspace) before anything runs over.
+                     let room = ui.available_width();
+-                    let icons_shown: u8 = if room >= WORKSPACE_MIN + 2.0 * ICON_SLOT {
++                    let copy_shown = room >= WORKSPACE_MIN + 2.0 * ICON_SLOT + COPY_SLOT;
++                    let controls_room = room - if copy_shown { COPY_SLOT } else { 0.0 };
++                    let icons_shown: u8 = if controls_room >= WORKSPACE_MIN + 2.0 * ICON_SLOT {
+                         2
+-                    } else if room >= WORKSPACE_MIN + ICON_SLOT {
++                    } else if controls_room >= WORKSPACE_MIN + ICON_SLOT {
+                         1
+                     } else {
+                         0
+                     };
+-                    let ws_width = (room - f32::from(icons_shown) * ICON_SLOT - 6.0).clamp(WORKSPACE_MIN, 130.0);
++                    let ws_width = (controls_room - f32::from(icons_shown) * ICON_SLOT - 6.0).clamp(WORKSPACE_MIN, 130.0);
+                     if room >= WORKSPACE_MIN && widgets::dropdown(ui, "workspace", tl!("Workspace"), &mut ws, &opts, ws_width) {
+                         app.ui.workspace = ws;
+                         crate::menus::apply_workspace(app);
+@@ -124,6 +127,16 @@ pub fn title_bar(app: &mut PhotocraftApp, ui: &mut egui::Ui) {
+                         }
+                         button.context_menu(|ui| crate::prefs_ui::appearance_context_menu(app, ui));
+                     }
++                    if copy_shown {
++                        let enabled = crate::menus::is_enabled(app, "file.export.clipboard");
++                        let button = ui
++                            .add_enabled(enabled, egui::Button::new(tl!("Copy image")).min_size(vec2(COPY_SLOT - 6.0, 24.0)))
++                            .on_hover_text(tl!("Copy full canvas to clipboard"));
++                        ui.ctx().data_mut(|d| d.insert_temp(clipboard_button_id(), button.rect));
++                        if button.clicked() {
++                            let _ = app.run("file.export.clipboard", serde_json::json!({}));
++                        }
++                    }
+                     if rtl { ui.min_rect().right() } else { ui.min_rect().left() }
+                 };
+                 free = if rtl { (controls_end, menus_end) } else { (menus_end, controls_end) };
+@@ -197,6 +210,15 @@ const TITLE_GAP: f32 = 16.0;
+ const WORKSPACE_MIN: f32 = 90.0;
+ 
+ const ICON_SLOT: f32 = 34.0;
++const COPY_SLOT: f32 = 94.0;
++
++fn clipboard_button_id() -> egui::Id {
++    egui::Id::unique("photocraft-titlebar-clipboard")
++}
++
++pub(crate) fn clipboard_button_rect(ctx: &egui::Context) -> Option<egui::Rect> {
++    ctx.data(|d| d.get_temp(clipboard_button_id()))
++}
+ 
+ /// Left edge for a title `width` wide: centred on `center` when it fits in the free gap from
+ /// `left` to `right` (the menus' and the controls' facing edges, whichever side each is on),
+@@ -211,3 +233,50 @@ pub(super) fn title_x(center: f32, left: f32, right: f32, width: f32) -> Option<
+     }
+     Some((center - width / 2.0).clamp(lo, hi))
+ }
++
++#[cfg(test)]
++mod clipboard_button_tests {
++    use super::*;
++    use std::sync::{Arc, Mutex};
++
++    #[test]
++    fn titlebar_clipboard_button_exports_and_disables_without_a_document() {
++        let copied = Arc::new(Mutex::new(None));
++        let output = copied.clone();
++        let services = crate::Services {
++            clipboard_set_image: Some(Box::new(move |w, h, bytes| {
++                *output.lock().unwrap() = Some((w, h, bytes.len()));
++                Ok(())
++            })),
++            ..Default::default()
++        };
++        let mut app = PhotocraftApp::new(photocraft_engine::Session::new(), services);
++        let ctx = egui::Context::default();
++        PhotocraftApp::setup_context(&ctx, Default::default());
++        let draw = |app: &mut PhotocraftApp, events| {
++            let input = egui::RawInput { screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, vec2(1440.0, 900.0))), events, ..Default::default() };
++            let mut out = ctx.run_ui(input, |ui| crate::i18n::with_language(crate::i18n::Lang::EN, || title_bar(app, ui)));
++            out.textures_delta.clear();
++        };
++        draw(&mut app, vec![]);
++        assert!(clipboard_button_rect(&ctx).is_some());
++        assert!(!crate::menus::is_enabled(&app, "file.export.clipboard"));
++        app.run("file.new", serde_json::json!({"width":16,"height":12})).unwrap();
++        draw(&mut app, vec![]);
++        let pos = clipboard_button_rect(&ctx).unwrap().center();
++        let revision = app.session.active().unwrap().revision;
++        for pressed in [true, false] {
++            draw(
++                &mut app,
++                vec![
++                    egui::Event::PointerMoved(pos),
++                    egui::Event::PointerButton { pos, button: egui::PointerButton::Primary, pressed, modifiers: egui::Modifiers::NONE },
++                ],
++            );
++        }
++        assert_eq!(*copied.lock().unwrap(), Some((16, 12, 16 * 12 * 4)));
++        assert_eq!(app.session.active().unwrap().revision, revision);
++        assert!(!app.ui.status_error);
++    }
++}
++
 diff --git a/crates/ui-egui/src/state.rs b/crates/ui-egui/src/state.rs
 index 060871a..bec5f14 100644
 --- a/crates/ui-egui/src/state.rs
@@ -1027,13 +1154,14 @@ index 060871a..bec5f14 100644
              group_tools: Vec::new(),
              spring: None,
 diff --git a/docs/control-protocol.md b/docs/control-protocol.md
-index 5436d28..0191775 100644
+index 5436d28..2c81e1f 100644
 --- a/docs/control-protocol.md
 +++ b/docs/control-protocol.md
-@@ -46,6 +46,7 @@ The transport is `apps/photocraft/src/control_server.rs`, and the handlers are i
+@@ -46,6 +46,8 @@ The transport is `apps/photocraft/src/control_server.rs`, and the handlers are i
  
  - `engine.execute {command, params}`: run any engine or UI command by id. Engine commands run directly with their default params and never open a dialog. Use `ui.menu.invoke` for menu-click behaviour, which opens a command's dialog when no params are given. `params` must be a JSON object (omit it or pass `null` for none); an array, string, number or boolean is an error naming the command, in every transport (control channel, `serve`, MCP and the CLI)
  - `engine.commands`: list commands with enablement; the `result` is a JSON array of command objects (see [Command list replies](#command-list-replies))
++- `ui.inspect.clipboardExport` (Codex AI integration) is `null` when the title-bar copy button is hidden, otherwise `{rect:[x,y,width,height],enabled:bool}`. Click its screen-coordinate center with `ui.click` to copy the complete visible canvas; the button sits before the appearance control and is disabled without a document or system image clipboard service.
 +- `file.export.clipboard` (Codex AI integration): desktop `ui.menu.invoke` or `engine.execute` copies the entire visible canvas to the system image clipboard as RGBA8 and returns `{width,height,copied:true}`. It ignores the selection, preserves transparency and canvas dimensions, creates no export file, and does not change document revisions or undo history. A busy/unavailable clipboard is an error and retains the previous internal copy. This explicit export works even when automatic Copy mirroring is disabled. Limit: 64 million pixels. In a headless engine session the command prepares the session clipboard only and returns `{width,height}`.
  - `ui.inspect`: full UI state (tool, panels, views, dialogs, windows, window size). The menu tree is not included; use `ui.menu.list`. `brushPicker` is `null` while closed and `{pos: [x, y], size: [w, h]?, list: {collapsed, filter, renaming, showName, showStroke, showTip, scale}}` while the Brush Preset picker is open (coordinates in screen points; `size` is the picker's content size once its corner grip was dragged, `null` before that, and the drag remembers both dimensions; the three `show*` flags pick the parts of each preset's card — at least one is always on; `scale` is the footer slider, 0.15–2 with 1 the standard, multiplying the cards' width and height — the heights stop at half size and the name and tip-size text hold their 1.0 size — and dropping the tips' size numbers at 0.40 and below; the parts and the scale are remembered across restarts, while the search, collapsed groups and a rename in progress are not). `view` holds the View/Window/Type preferences: `screen_mode`, `extras`, `show` and `snap_to` flags, `flip_horizontal`, `arrange` (Window › Arrange layout), pixel aspect, font preview size, language options. `perf.timings.gpuInfo` holds the graphics adapter, backend, driver, the backend chosen at launch and why, the canvas renderer (`gpu`/`cpu`) and, after a device loss, `lost` (`help.systemInfo` returns the same as `info`). `perf.renderPath` says why the active document is drawn on the CPU: `current` is `null` on the GPU, else `{doc, kind, detail}` (`kind` is one of `overBudget`, `canvasTooLarge`, `compositorBuild`, `deviceLost`, `gpuError`, `unsupported`, `adjustPreview`, `viewTransform`, `softwareAdapter`, `cpuMode`; `detail` is the English reason, with the working set and budget for `overBudget`), and `history` holds the last 32 changes, oldest first (`{t, doc, kind, detail}`, `kind` `null` for back on the GPU, `doc` the changed document's id, or 0 for a change to every document). An adjustment dialog's CPU proxy preview has its own slot: `current` reports it (`adjustPreview`) only when neither the window nor the canvas has a reason, it isn't recorded while the whole window is off the GPU, and its history entries always have `kind` `adjustPreview`, with `detail` `null` when the preview stops using the proxy (never read as back on the GPU). `perf.timings.gpuFallback` is `current`'s `detail` as text. `perf.slowFrames` lists the last 64 frames over 50 ms, oldest first, each with its stages in ms: `t` (start), `frameMs`, `inputMs` (raw input to the UI build, commands excluded), `commandMs` and `command` (the last command run since the previous frame), `damageMs` (damage tracking and GPU memory budgeting), `compositeMs`, `uploadMs`, `gpuMs` (the GPU's own composite time, or `null`), `presentMs` (the previous frame's tessellation and submission, or `null`), `refresh` and `refreshPx` (the canvas redraw's kind and pixels) and `path` (`gpu` or `cpu`). It stays empty on the web, which has no clock
  - `ui.set {tool?, panels?, dockTabs?, dock?, dockWidth?, colorPanel?, maskTarget?, vectorMaskTarget?, filterMaskTarget?, selectionMode?, zoom?, center?, rotation?, fit?, theme?, brushSize?, brushSection?, brushTab?, brushesView?, brushPicker?, brushPickerName?, brushPickerStroke?, brushPickerTip?, brushPickerScale?, gradientBlendMode?, gradientClassic?, shapeStroke?}`: change UI state; any other field is an error, checked before anything changes (`zoom` is the canvas zoom where 1 = 100%, one document pixel per physical display pixel, so a scaled display doesn't magnify the image; `theme` is `pro`, `proMedium`, `studio`, `studioLight` or `classic`; `selectionMode` is the selection tools' options-bar mode, 0 New, 1 Add, 2 Subtract, 3 Intersect; `brushSection` indexes the Brush Settings sections, `brushTab` 0 = Brush Settings, 1 = Brushes; `brushesView` is `list` or `grid` for the Brushes panel; `brushPickerName`, `brushPickerStroke` and `brushPickerTip` are the Brush Preset picker's card parts (booleans, at least one on), and `brushPickerScale` its footer card-scale slider (0.15 to 2, 1 the standard); `brushPicker` is `[x, y]` in screen points to open the Brush Preset picker there (as a right-click with a painting tool does) or `null` to close it, and picking a preset in it is `tools.setBrush {"preset": name}`; `dock` is `{order: ["layers", …], heights: {"properties": 180}, collapsed: ["color"], tabOrder: {"layers": ["Paths", "Layers", "Channels"]}}`, the right-dock groups top to bottom, their heights in points, the groups collapsed to their tab strip and each group's tab order left to right by panel name (a group left out keeps its default order, unknown names are ignored and tabs not listed follow in their default order; `dockTabs` keeps indexing tabs in their default order); `dockWidth` sets the right dock width in points, clamped to 250..520; `colorPanel` is `{background?, mode?, ramp?, webSafeRamp?}`, merged into the Color panel's state: `background` is whether it edits the background colour, `mode` its panel-menu display (`hueCube`, `brightnessCube`, `colorWheel`, `grayscaleSlider`, `rgbSliders`, `hsbSliders`, `cmykSliders`, `labSliders` or `webColorSliders`), `ramp` the colour ramp under the sliders (`rgbSpectrum`, `cmykSpectrum`, `grayscaleRamp` or `currentColors`) and `webSafeRamp` Make Ramp Web Safe; `maskTarget` targets the active layer's mask, which, like Photoshop, swaps in the foreground/background pair kept for masks (white/black until one is picked) and swaps the pixels' pair back when the pixels are targeted again; `filterMaskTarget` targets the active smart object's filter mask (an error without smart filters), so painting, fills, filters and adjustments edit it (`"target":"filterMask"`) while Move and Edit › Transform still act on the smart object)

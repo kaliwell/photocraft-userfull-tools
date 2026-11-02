@@ -1,3 +1,15 @@
+# v0.2.11 标题栏复制按钮 / Title-bar Copy image button
+
+2026-11-02，Windows x64，本地开发预览版。
+- 月亮图标左侧新增“复制图片”，未打开文档时禁用，窄窗口保留文件菜单入口。
+- 真实鼠标点击测试通过；Windows 剪贴板回读验证完整 320×200 画布、透明与半透明像素、选区外像素均正确，无导出文件，文档和选区保持。
+- 按钮 UI 单元测试、UI all-targets Clippy（`-D warnings`）及 wasm 24 crates + heif 检查通过。
+- 下方全量 UI 套件的字体及帧数限制仍适用；本次未重复运行全量套件。
+
+English: The title-bar button next to Appearance copies the full canvas. A targeted UI test and a real Windows clipboard readback through an actual button click passed, preserving transparency, the selection, and the document without creating an export file. UI Clippy and wasm checks passed. Historical full-suite limitations remain documented below.
+
+---
+
 # v0.2.10 剪贴板导出 / Clipboard export
 
 2026-11-02，Windows x64，本地开发预览版。
