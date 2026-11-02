@@ -1,3 +1,189 @@
+diff --git a/crates/automation/src/workspace.rs b/crates/automation/src/workspace.rs
+index 2334a2f..d821f86 100644
+--- a/crates/automation/src/workspace.rs
++++ b/crates/automation/src/workspace.rs
+@@ -325,6 +325,11 @@ fn file_error(operation: &str, path: &str, error: std::io::Error) -> AutomationE
+ /// directory capabilities. Automation must use `doc.open`, `doc.save` and
+ /// `doc.render` for file effects until those commands are migrated.
+ pub fn authorize_engine_command(id: &str, params: &Value) -> Result<(), AutomationError> {
++    // Clipboard export has no filesystem destination. Keep this exception exact and
++    // parameter-free; all ordinary file exports still require a directory capability.
++    if id == "file.export.clipboard" {
++        return if params.is_null() || params.as_object().is_some_and(|object| object.is_empty()) { Ok(()) } else { Err(command_error(id)) };
++    }
+     let safe_file_command = matches!(
+         id,
+         "file.new"
+diff --git a/crates/automation/src/workspace/tests.rs b/crates/automation/src/workspace/tests.rs
+index 4cafd97..6304491 100644
+--- a/crates/automation/src/workspace/tests.rs
++++ b/crates/automation/src/workspace/tests.rs
+@@ -499,6 +499,21 @@ fn automation_rejects_ambient_path_commands_and_preferences() {
+     assert!(authorize_engine_command("prefs.set", &serde_json::json!({"path": "fileHandling.autosave", "value": false})).is_ok());
+ }
+ 
++#[test]
++fn clipboard_export_authorization_is_pathless_and_does_not_allow_other_exports() {
++    for params in [serde_json::Value::Null, serde_json::json!({})] {
++        assert!(authorize_engine_command("file.export.clipboard", &params).is_ok());
++        assert!(authorize_desktop_engine_command("file.export.clipboard", &params).is_ok());
++    }
++    for params in [serde_json::json!({"path":"/outside/output.png"}), serde_json::json!({"dir":"/outside"}), serde_json::json!([])] {
++        assert!(authorize_engine_command("file.export.clipboard", &params).is_err());
++        assert!(authorize_desktop_engine_command("file.export.clipboard", &params).is_err());
++    }
++    for id in ["file.export.exportAs", "file.export.quickExportAsPng", "file.export.clipboardOther"] {
++        assert!(authorize_engine_command(id, &serde_json::json!({})).is_err());
++    }
++}
++
+ #[test]
+ fn registry_filesystem_path_params_are_classified() {
+     let probe = serde_json::json!({
+diff --git a/crates/engine/src/cmd.rs b/crates/engine/src/cmd.rs
+index 27c7ca3..dbe6f3d 100644
+--- a/crates/engine/src/cmd.rs
++++ b/crates/engine/src/cmd.rs
+@@ -63,6 +63,7 @@ pub mod brush_cmds;
+ pub mod brush_key_cmds;
+ pub mod brush_preset_cmds;
+ pub mod channel_cmds;
++pub mod clipboard_export_cmds;
+ pub mod color_cmds;
+ pub mod color_to_alpha_cmds;
+ pub mod comps_cmds;
+@@ -1243,6 +1244,7 @@ fn build() -> Vec<CommandSpec> {
+     v.extend(crate::cutout_cmds::specs());
+     v.extend(crate::symmetry_cmds::specs());
+     v.extend(crate::edit_cmds::specs());
++    v.extend(clipboard_export_cmds::specs());
+     v.extend(crate::color_cmds::specs());
+     v.extend(crate::brush_cmds::specs());
+     v.extend(crate::brush_preset_cmds::specs());
+diff --git a/crates/engine/src/cmd/clipboard_export_cmds.rs b/crates/engine/src/cmd/clipboard_export_cmds.rs
+new file mode 100644
+index 0000000..69f327f
+--- /dev/null
++++ b/crates/engine/src/cmd/clipboard_export_cmds.rs
+@@ -0,0 +1,118 @@
++//! Export the entire visible canvas to the session clipboard without changing the document.
++
++use photocraft_color::{ColorMode, PixelFormat};
++use serde_json::{Value, json};
++
++use crate::commands::CommandSpec;
++use crate::edit_cmds::Clip;
++use crate::{EngineError, Result, Session};
++
++pub const EXPORT: &str = "file.export.clipboard";
++const MAX_PIXELS: u64 = 64_000_000;
++
++/// Render without changing the document. The desktop bridge restores the previous session
++/// clipboard if the operating system refuses the image.
++fn prepare(s: &Session, params: &Value) -> Result<Clip> {
++    if !params.is_null() && !params.as_object().is_some_and(|object| object.is_empty()) {
++        return Err(EngineError::Other("Export to Clipboard expects an empty parameter object".into()));
++    }
++    let state = s.active().ok_or(EngineError::NoDocument)?;
++    let doc = &state.doc;
++    let bounds = doc.bounds();
++    let pixels = u64::from(bounds.width()) * u64::from(bounds.height());
++    if bounds.is_empty() || pixels > MAX_PIXELS {
++        return Err(EngineError::Other("Export to Clipboard requires a nonempty canvas of at most 64 million pixels".into()));
++    }
++    crate::allocation::checkpoint("exporting to the clipboard")?;
++    // The shared compositor handles the source's colour mode and depth, masks, opacity,
++    // blend modes and visibility. OS clipboards receive RGBA, not document-native channels.
++    let surface = photocraft_compose::flatten_to_surface(doc, PixelFormat::new(ColorMode::Rgb, doc.depth, true), None);
++    Ok(Clip { surface, bounds, layers: None, resolution: Some(doc.resolution_dpi), source: Some(doc.id) })
++}
++
++pub fn specs() -> Vec<CommandSpec> {
++    vec![CommandSpec {
++        id: EXPORT,
++        label: "Export to Clipboard",
++        menu: &["File", "Export"],
++        shortcut: None,
++        params: "{} → {width,height}; full visible canvas, ignoring the selection; desktop writes an RGBA8 system clipboard image",
++        enabled: |s| s.active().map(|_| ()).ok_or_else(|| "no document open".into()),
++        run: |s, p| {
++            let clip = prepare(s, p)?;
++            let result = json!({"width": clip.bounds.width(), "height": clip.bounds.height()});
++            s.clipboard = Some(clip);
++            Ok(result)
++        },
++        journal: false,
++    }]
++}
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++    use photocraft_color::SampleType;
++    use photocraft_doc::{Document, Layer};
++    use photocraft_geom::{Rect, Size};
++    use photocraft_raster::Surface;
++
++    #[test]
++    fn full_canvas_preserves_selection_history_and_transparency_at_all_depths() {
++        for depth in [SampleType::U8, SampleType::U16, SampleType::F32] {
++            let mut doc = Document::new("Clipboard", Size::new(12, 10), ColorMode::Rgb, depth);
++            let mut layer = Layer::raster("Visible", doc.pixel_format());
++            layer.surface_mut().unwrap().fill_rect(Rect::new(2, 2, 8, 8), &[1.0, 0.0, 0.0, 0.5]);
++            doc.layers.push(layer);
++            let mut second = Layer::raster("Second visible layer", doc.pixel_format());
++            second.surface_mut().unwrap().fill_rect(Rect::new(10, 8, 12, 10), &[0.0, 0.0, 1.0, 1.0]);
++            doc.layers.push(second);
++            let mut hidden = Layer::raster("Hidden", doc.pixel_format());
++            hidden.surface_mut().unwrap().fill_rect(doc.bounds(), &[0.0, 1.0, 0.0, 1.0]);
++            hidden.visible = false;
++            doc.layers.push(hidden);
++            let mut selection = Surface::new(PixelFormat::GRAY8);
++            selection.fill_rect(Rect::new(0, 0, 1, 1), &[1.0]);
++            doc.selection = Some(selection);
++            let mut s = Session::new();
++            s.add_document(doc, None);
++            let before = s.active().unwrap().doc.clone();
++            let revision = s.active().unwrap().revision;
++            let history = s.active().unwrap().history.past_len();
++            let result = s.execute(EXPORT, json!({})).unwrap();
++            assert_eq!(result, json!({"width":12,"height":10}));
++            let clip = s.clipboard.as_ref().unwrap();
++            assert_eq!(clip.bounds, Rect::new(0, 0, 12, 10));
++            assert_eq!(clip.surface.rgba(0, 0)[3], 0.0);
++            let p = clip.surface.rgba(4, 4);
++            assert!(p[0] > 0.99 && p[1] < 0.01 && (p[3] - 0.5).abs() < 0.01);
++            assert!(clip.surface.rgba(11, 9)[2] > 0.99);
++            assert_eq!(s.active().unwrap().doc, before);
++            assert_eq!(s.active().unwrap().revision, revision);
++            assert_eq!(s.active().unwrap().history.past_len(), history);
++        }
++    }
++
++    #[test]
++    fn transparent_canvas_is_an_image_and_invalid_requests_preserve_previous_clip() {
++        let mut s = Session::new();
++        assert!(s.execute(EXPORT, json!({})).is_err());
++        s.add_document(Document::new("Empty", Size::new(4, 3), ColorMode::Rgb, SampleType::U8), None);
++        s.execute(EXPORT, json!({})).unwrap();
++        assert_eq!(s.clipboard.as_ref().unwrap().bounds, Rect::new(0, 0, 4, 3));
++        for bad in [json!(true), json!([]), json!({"path":"unused.png"}), json!({"selection":true})] {
++            assert!(s.execute(EXPORT, bad).is_err());
++            assert_eq!(s.clipboard.as_ref().unwrap().bounds, Rect::new(0, 0, 4, 3));
++        }
++        crate::allocation::fail_next_for_test();
++        assert!(s.execute(EXPORT, json!({})).is_err());
++        assert_eq!(s.clipboard.as_ref().unwrap().bounds, Rect::new(0, 0, 4, 3));
++    }
++
++    #[test]
++    fn oversized_canvas_is_refused_before_rendering() {
++        let mut s = Session::new();
++        s.add_document(Document::new("Large", Size::new(10_000, 10_000), ColorMode::Rgb, SampleType::U8), None);
++        assert!(s.execute(EXPORT, json!({})).is_err());
++        assert!(s.clipboard.is_none());
++    }
++}
 diff --git a/crates/engine/src/cmd/layer_mask_props_cmds.rs b/crates/engine/src/cmd/layer_mask_props_cmds.rs
 index 64a088e..c8e8d15 100644
 --- a/crates/engine/src/cmd/layer_mask_props_cmds.rs
@@ -156,6 +342,127 @@ index cd32de1..36aaf36 100644
  fn session(depth: SampleType, adjustment: bool) -> (Session, LayerId, LayerId) {
      let mut doc = Document::new("Masks", Size::new(8, 8), ColorMode::Rgb, depth);
      let background = Layer::raster("Unmasked", doc.pixel_format());
+diff --git a/crates/ui-egui/src/app/clipboard.rs b/crates/ui-egui/src/app/clipboard.rs
+index 5a3cad5..598614f 100644
+--- a/crates/ui-egui/src/app/clipboard.rs
++++ b/crates/ui-egui/src/app/clipboard.rs
+@@ -9,6 +9,35 @@ fn clip_signature(w: u32, h: u32, px: &[u8]) -> u64 {
+ }
+ 
+ impl PhotocraftApp {
++    /// Explicit export ignores the preference that disables automatic Copy mirroring.
++    /// No intermediate file, selection change, document edit, or history step is needed.
++    pub(super) fn export_document_clipboard(&mut self, params: &serde_json::Value) -> Result<serde_json::Value, String> {
++        if self.services.clipboard_set_image.is_none() {
++            return Err(tl!("System image clipboard is unavailable").into());
++        }
++        let previous = self.session.clipboard.clone();
++        self.session.execute("file.export.clipboard", params.clone()).map_err(|e| e.to_string())?;
++        let result = (|| {
++            let clip = self.session.clipboard.as_ref().ok_or("No image to export")?;
++            let b = clip.bounds;
++            let len = (b.width() as usize).checked_mul(b.height() as usize).and_then(|n| n.checked_mul(4)).ok_or("Clipboard image is too large")?;
++            let mut bytes = Vec::new();
++            bytes.try_reserve_exact(len).map_err(|_| "Not enough memory for the clipboard image")?;
++            bytes.resize(len, 0u8);
++            clip.surface.read_rgba8_into(b, bytes.as_chunks_mut::<4>().0);
++            let set = self.services.clipboard_set_image.as_mut().ok_or("System image clipboard is unavailable")?;
++            set(b.width(), b.height(), &bytes)?;
++            self.os_clip_sig = Some(clip_signature(b.width(), b.height(), &bytes));
++            self.clip_external = false;
++            self.clip_unmirrored = false;
++            Ok(serde_json::json!({"width":b.width(),"height":b.height(),"copied":true}))
++        })();
++        if result.is_err() {
++            self.session.clipboard = previous;
++        }
++        result
++    }
++
+     /// Mirror the session clipboard onto the OS clipboard (RGBA8).
+     pub(super) fn export_os_clipboard(&mut self) {
+         self.clip_unmirrored = true;
+diff --git a/crates/ui-egui/src/app/clipboard_tests.rs b/crates/ui-egui/src/app/clipboard_tests.rs
+index 65318b1..cb5efc1 100644
+--- a/crates/ui-egui/src/app/clipboard_tests.rs
++++ b/crates/ui-egui/src/app/clipboard_tests.rs
+@@ -58,6 +58,51 @@ fn os_clipboard_honours_export_clipboard_preference() {
+ 
+ type OsClip = Arc<Mutex<Option<(u32, u32, Vec<u8>)>>>;
+ 
++#[test]
++fn clipboard_export_copies_the_whole_canvas_even_with_selection_and_mirroring_disabled() {
++    let os = OsClip::default();
++    let output = os.clone();
++    let services = Services {
++        clipboard_set_image: Some(Box::new(move |w, h, bytes| {
++            *output.lock().unwrap() = Some((w, h, bytes.to_vec()));
++            Ok(())
++        })),
++        ..Default::default()
++    };
++    let mut app = PhotocraftApp::new(Session::new(), services);
++    app.session.execute("file.new", serde_json::json!({"width":16,"height":12,"background":"transparent"})).unwrap();
++    app.session.execute("prefs.set", serde_json::json!({"path":"general.exportClipboard","value":false})).unwrap();
++    app.run("select.rect", serde_json::json!({"x":2,"y":3,"width":4,"height":5})).unwrap();
++    let before = app.session.active().unwrap().doc.clone();
++    let revision = app.session.active().unwrap().revision;
++    assert!(crate::menus::is_enabled(&app, "file.export.clipboard"));
++    let result = crate::menus::invoke(&mut app, &egui::Context::default(), "file.export.clipboard", serde_json::Value::Null).unwrap();
++    assert_eq!(result, serde_json::json!({"width":16,"height":12,"copied":true}));
++    let (w, h, bytes) = os.lock().unwrap().clone().unwrap();
++    assert_eq!((w, h, bytes.len()), (16, 12, 16 * 12 * 4));
++    assert!(bytes.as_chunks::<4>().0.iter().all(|pixel| pixel[3] == 0));
++    assert_eq!(app.session.active().unwrap().doc, before);
++    assert_eq!(app.session.active().unwrap().revision, revision);
++    assert!(!app.ui.status_error);
++}
++
++#[test]
++fn clipboard_export_reports_busy_and_unavailable_clipboards_without_replacing_session_copy() {
++    let mut app = PhotocraftApp::new(Session::new(), Services::default());
++    assert!(!crate::menus::is_enabled(&app, "file.export.clipboard"));
++    app.session.execute("file.new", serde_json::json!({"width":16,"height":12,"background":"white"})).unwrap();
++    app.run("select.rect", serde_json::json!({"x":0,"y":0,"width":2,"height":3})).unwrap();
++    app.run("edit.copyMerged", serde_json::json!({})).unwrap();
++    let before = app.session.clipboard.as_ref().unwrap().clone();
++    assert!(app.run("file.export.clipboard", serde_json::json!({})).is_err());
++    assert!(app.ui.status_error);
++    app.services.clipboard_set_image = Some(Box::new(|_, _, _| Err("clipboard is busy".into())));
++    assert_eq!(app.run("file.export.clipboard", serde_json::json!({})).unwrap_err(), "clipboard is busy");
++    assert_eq!(app.session.clipboard.as_ref().unwrap().bounds, before.bounds);
++    assert_eq!(app.session.clipboard.as_ref().unwrap().surface, before.surface);
++    assert!(app.ui.status_error);
++}
++
+ #[test]
+ fn failed_clipboard_reads_preserve_editable_contents_until_retry() {
+     use std::sync::atomic::{AtomicBool, Ordering};
+diff --git a/crates/ui-egui/src/app/commands.rs b/crates/ui-egui/src/app/commands.rs
+index 5645693..d1104c3 100644
+--- a/crates/ui-egui/src/app/commands.rs
++++ b/crates/ui-egui/src/app/commands.rs
+@@ -54,6 +54,20 @@ impl PhotocraftApp {
+         {
+             authorize(id, &params)?;
+         }
++        if id == "file.export.clipboard" {
++            let result = self.export_document_clipboard(&params);
++            match &result {
++                Ok(_) => {
++                    self.ui.status = tl!("Image copied to clipboard").into();
++                    self.ui.status_error = false;
++                }
++                Err(error) => {
++                    self.ui.status = error.clone();
++                    self.ui.status_error = true;
++                }
++            }
++            return result;
++        }
+         // A new layer while Free Transform is open applies the transform first, as Photoshop does
+         // (#5667): History reads the transform (or Place Embedded), then New Layer. Only for a
+         // command that can run; a transform refused or still being applied keeps the box open and
 diff --git a/crates/ui-egui/src/canvas.rs b/crates/ui-egui/src/canvas.rs
 index da59b5a..efecea0 100644
 --- a/crates/ui-egui/src/canvas.rs
@@ -507,6 +814,32 @@ index 9b2140d..09b78e5 100644
  }
  
  pub fn save_screenshot(app: &mut PhotocraftApp, image: &egui::ColorImage, path: Option<&str>) -> Value {
+diff --git a/crates/ui-egui/src/i18n/zh-hans.tsv b/crates/ui-egui/src/i18n/zh-hans.tsv
+index 0c1b3f4..469d34b 100644
+--- a/crates/ui-egui/src/i18n/zh-hans.tsv
++++ b/crates/ui-egui/src/i18n/zh-hans.tsv
+@@ -1,4 +1,8 @@
+ # Simplified Chinese (zh-hans) catalog. UTF-8, TAB-separated columns:
++@id	file.export.clipboard	导出到剪贴板
++	Export to Clipboard	导出到剪贴板
++	Image copied to clipboard	图片已复制到剪贴板
++	System image clipboard is unavailable	系统图片剪贴板不可用
+ # context <TAB> English source <TAB> Simplified Chinese translation
+ #
+ # Empty context: plain UI text. @id: stable command ID. @plural: one|other source
+diff --git a/crates/ui-egui/src/i18n/zh-hant.tsv b/crates/ui-egui/src/i18n/zh-hant.tsv
+index 10de209..70b750a 100644
+--- a/crates/ui-egui/src/i18n/zh-hant.tsv
++++ b/crates/ui-egui/src/i18n/zh-hant.tsv
+@@ -3143,3 +3143,8 @@ curves	Smooth	平滑
+ 	Select and Mask was closed: another layer was selected	已關閉「選取並遮住」：已選取另一個圖層
+ 	Drag to move the selected path	拖曳以移動選取的路徑
+ 	Edit Brush…	編輯筆刷…
++# Clipboard export
++@id	file.export.clipboard	匯出到剪貼簿
++	Export to Clipboard	匯出到剪貼簿
++	Image copied to clipboard	圖片已複製到剪貼簿
++	System image clipboard is unavailable	系統圖片剪貼簿無法使用
 diff --git a/crates/ui-egui/src/lib.rs b/crates/ui-egui/src/lib.rs
 index e272ddb..2e4721d 100644
 --- a/crates/ui-egui/src/lib.rs
@@ -519,6 +852,30 @@ index e272ddb..2e4721d 100644
  pub mod control;
  pub mod dialogs;
  pub mod dock;
+diff --git a/crates/ui-egui/src/menu_catalog.rs b/crates/ui-egui/src/menu_catalog.rs
+index 1d98028..f48248c 100644
+--- a/crates/ui-egui/src/menu_catalog.rs
++++ b/crates/ui-egui/src/menu_catalog.rs
+@@ -19,6 +19,7 @@ pub static CATALOG: &[(&[&str], &str, Option<&str>, &str)] = &[
+     (&["File"], "Revert", Some("F12"), "file.revert"),
+     (&["File"], "---", None, "---"),
+     (&["File", "Export"], "Quick Export as PNG", None, "file.export.quickExportAsPng"),
++    (&["File", "Export"], "Export to Clipboard", None, "file.export.clipboard"),
+     (&["File", "Export"], "Export As…", Some("Cmd+Alt+Shift+W"), "file.export.exportAs"),
+     (&["File", "Export"], "Export Preferences…", None, "file.export.exportPreferences"),
+     (&["File", "Export"], "---", None, "---"),
+diff --git a/crates/ui-egui/src/menus/state.rs b/crates/ui-egui/src/menus/state.rs
+index c932ca0..b440143 100644
+--- a/crates/ui-egui/src/menus/state.rs
++++ b/crates/ui-egui/src/menus/state.rs
+@@ -68,6 +68,7 @@ pub fn is_enabled(app: &PhotocraftApp, id: &str) -> bool {
+         i if i.starts_with("window.theme.") => true,
+         // Interface brightness works with or without a document, as in Photoshop.
+         "view.darkenInterface" | "view.lightenInterface" => true,
++        "file.export.clipboard" => app.session.active().is_some() && app.services.clipboard_set_image.is_some(),
+         "file.save" | "file.saveAs" | "file.export.exportAs" | "file.export.quickExportAsPng" => {
+             app.session.active().is_some() && app.services.export.is_some()
+         }
 diff --git a/crates/ui-egui/src/panels/layer_menu_ui.rs b/crates/ui-egui/src/panels/layer_menu_ui.rs
 index f274e28..6f84fa9 100644
 --- a/crates/ui-egui/src/panels/layer_menu_ui.rs
@@ -669,3 +1026,33 @@ index 060871a..bec5f14 100644
              tool: Tool::Brush,
              group_tools: Vec::new(),
              spring: None,
+diff --git a/docs/control-protocol.md b/docs/control-protocol.md
+index 5436d28..0191775 100644
+--- a/docs/control-protocol.md
++++ b/docs/control-protocol.md
+@@ -46,6 +46,7 @@ The transport is `apps/photocraft/src/control_server.rs`, and the handlers are i
+ 
+ - `engine.execute {command, params}`: run any engine or UI command by id. Engine commands run directly with their default params and never open a dialog. Use `ui.menu.invoke` for menu-click behaviour, which opens a command's dialog when no params are given. `params` must be a JSON object (omit it or pass `null` for none); an array, string, number or boolean is an error naming the command, in every transport (control channel, `serve`, MCP and the CLI)
+ - `engine.commands`: list commands with enablement; the `result` is a JSON array of command objects (see [Command list replies](#command-list-replies))
++- `file.export.clipboard` (Codex AI integration): desktop `ui.menu.invoke` or `engine.execute` copies the entire visible canvas to the system image clipboard as RGBA8 and returns `{width,height,copied:true}`. It ignores the selection, preserves transparency and canvas dimensions, creates no export file, and does not change document revisions or undo history. A busy/unavailable clipboard is an error and retains the previous internal copy. This explicit export works even when automatic Copy mirroring is disabled. Limit: 64 million pixels. In a headless engine session the command prepares the session clipboard only and returns `{width,height}`.
+ - `ui.inspect`: full UI state (tool, panels, views, dialogs, windows, window size). The menu tree is not included; use `ui.menu.list`. `brushPicker` is `null` while closed and `{pos: [x, y], size: [w, h]?, list: {collapsed, filter, renaming, showName, showStroke, showTip, scale}}` while the Brush Preset picker is open (coordinates in screen points; `size` is the picker's content size once its corner grip was dragged, `null` before that, and the drag remembers both dimensions; the three `show*` flags pick the parts of each preset's card — at least one is always on; `scale` is the footer slider, 0.15–2 with 1 the standard, multiplying the cards' width and height — the heights stop at half size and the name and tip-size text hold their 1.0 size — and dropping the tips' size numbers at 0.40 and below; the parts and the scale are remembered across restarts, while the search, collapsed groups and a rename in progress are not). `view` holds the View/Window/Type preferences: `screen_mode`, `extras`, `show` and `snap_to` flags, `flip_horizontal`, `arrange` (Window › Arrange layout), pixel aspect, font preview size, language options. `perf.timings.gpuInfo` holds the graphics adapter, backend, driver, the backend chosen at launch and why, the canvas renderer (`gpu`/`cpu`) and, after a device loss, `lost` (`help.systemInfo` returns the same as `info`). `perf.renderPath` says why the active document is drawn on the CPU: `current` is `null` on the GPU, else `{doc, kind, detail}` (`kind` is one of `overBudget`, `canvasTooLarge`, `compositorBuild`, `deviceLost`, `gpuError`, `unsupported`, `adjustPreview`, `viewTransform`, `softwareAdapter`, `cpuMode`; `detail` is the English reason, with the working set and budget for `overBudget`), and `history` holds the last 32 changes, oldest first (`{t, doc, kind, detail}`, `kind` `null` for back on the GPU, `doc` the changed document's id, or 0 for a change to every document). An adjustment dialog's CPU proxy preview has its own slot: `current` reports it (`adjustPreview`) only when neither the window nor the canvas has a reason, it isn't recorded while the whole window is off the GPU, and its history entries always have `kind` `adjustPreview`, with `detail` `null` when the preview stops using the proxy (never read as back on the GPU). `perf.timings.gpuFallback` is `current`'s `detail` as text. `perf.slowFrames` lists the last 64 frames over 50 ms, oldest first, each with its stages in ms: `t` (start), `frameMs`, `inputMs` (raw input to the UI build, commands excluded), `commandMs` and `command` (the last command run since the previous frame), `damageMs` (damage tracking and GPU memory budgeting), `compositeMs`, `uploadMs`, `gpuMs` (the GPU's own composite time, or `null`), `presentMs` (the previous frame's tessellation and submission, or `null`), `refresh` and `refreshPx` (the canvas redraw's kind and pixels) and `path` (`gpu` or `cpu`). It stays empty on the web, which has no clock
+ - `ui.set {tool?, panels?, dockTabs?, dock?, dockWidth?, colorPanel?, maskTarget?, vectorMaskTarget?, filterMaskTarget?, selectionMode?, zoom?, center?, rotation?, fit?, theme?, brushSize?, brushSection?, brushTab?, brushesView?, brushPicker?, brushPickerName?, brushPickerStroke?, brushPickerTip?, brushPickerScale?, gradientBlendMode?, gradientClassic?, shapeStroke?}`: change UI state; any other field is an error, checked before anything changes (`zoom` is the canvas zoom where 1 = 100%, one document pixel per physical display pixel, so a scaled display doesn't magnify the image; `theme` is `pro`, `proMedium`, `studio`, `studioLight` or `classic`; `selectionMode` is the selection tools' options-bar mode, 0 New, 1 Add, 2 Subtract, 3 Intersect; `brushSection` indexes the Brush Settings sections, `brushTab` 0 = Brush Settings, 1 = Brushes; `brushesView` is `list` or `grid` for the Brushes panel; `brushPickerName`, `brushPickerStroke` and `brushPickerTip` are the Brush Preset picker's card parts (booleans, at least one on), and `brushPickerScale` its footer card-scale slider (0.15 to 2, 1 the standard); `brushPicker` is `[x, y]` in screen points to open the Brush Preset picker there (as a right-click with a painting tool does) or `null` to close it, and picking a preset in it is `tools.setBrush {"preset": name}`; `dock` is `{order: ["layers", …], heights: {"properties": 180}, collapsed: ["color"], tabOrder: {"layers": ["Paths", "Layers", "Channels"]}}`, the right-dock groups top to bottom, their heights in points, the groups collapsed to their tab strip and each group's tab order left to right by panel name (a group left out keeps its default order, unknown names are ignored and tabs not listed follow in their default order; `dockTabs` keeps indexing tabs in their default order); `dockWidth` sets the right dock width in points, clamped to 250..520; `colorPanel` is `{background?, mode?, ramp?, webSafeRamp?}`, merged into the Color panel's state: `background` is whether it edits the background colour, `mode` its panel-menu display (`hueCube`, `brightnessCube`, `colorWheel`, `grayscaleSlider`, `rgbSliders`, `hsbSliders`, `cmykSliders`, `labSliders` or `webColorSliders`), `ramp` the colour ramp under the sliders (`rgbSpectrum`, `cmykSpectrum`, `grayscaleRamp` or `currentColors`) and `webSafeRamp` Make Ramp Web Safe; `maskTarget` targets the active layer's mask, which, like Photoshop, swaps in the foreground/background pair kept for masks (white/black until one is picked) and swaps the pixels' pair back when the pixels are targeted again; `filterMaskTarget` targets the active smart object's filter mask (an error without smart filters), so painting, fills, filters and adjustments edit it (`"target":"filterMask"`) while Move and Edit › Transform still act on the smart object)
+   - `typeTransform` is `null` outside a temporary Ctrl/Cmd Type-tool drag. During a drag it reports its source document/revision, original affine, oriented `frame` (layer, local bounds, document-space corners and pivot), and captured `gesture`. Drive it with `ui.pointer` and `command: true` at `down`; `move`/`up` may release the modifier. The document/history remain unchanged during preview, and `up` applies one `type.edit` within `textEdit`'s session. Pressing Escape during the drag cancels only the preview. This pointer state is never restored from saved UI state.
+diff --git a/docs/parity-checklist.md b/docs/parity-checklist.md
+index 5c747e5..ffbc03b 100644
+--- a/docs/parity-checklist.md
++++ b/docs/parity-checklist.md
+@@ -2,11 +2,11 @@
+ 
+ Generated by `cargo xtask parity` from `crates/ui-egui/src/menu_catalog.rs` (Photoshop's menu tree) and the live command registry. Do not edit by hand.
+ 
+-**631 of 631 menu items live (100.0%).**
++**632 of 632 menu items live (100.0%).**
+ 
+ | Menu | Live | Total | % |
+ |---|---:|---:|---:|
+-| File | 52 | 52 | 100% |
++| File | 53 | 53 | 100% |
+ | Edit | 75 | 75 | 100% |
+ | Image | 61 | 61 | 100% |
+ | Layer | 163 | 163 | 100% |

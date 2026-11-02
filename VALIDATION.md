@@ -1,3 +1,21 @@
+# v0.2.10 剪贴板导出 / Clipboard export
+
+2026-11-02，Windows x64，本地开发预览版。
+
+- 新增 `file.export.clipboard` 和“文件 → 导出 → 导出到剪贴板”菜单，含简繁中文翻译；完整可见画布在内存中合成并写入系统剪贴板，不创建导出文件，不使用 AI。
+- 3 项引擎测试：完整画布、多可见图层、隐藏层排除、透明度、8/16/32 位输入，选区/文档/历史保持，空白画布、参数拒绝和尺寸限制。
+- 2 项界面测试：关闭自动复制偏好时仍可手动导出，菜单调用，剪贴板不可用/占用时错误提示及原内部复制内容保持。
+- 1 项授权测试：无路径导出可用，携带路径/目录参数被拒绝，其他文件导出的权限限制保持。
+- Windows 实机回读剪贴板：320×200 RGBA，透明像素 `(0,0,0,0)`、半透明红色 `(255,0,0,128)`、选区外蓝色 `(0,80,255,255)` 均符合预期；文档修订号、图层、历史和选区保持。导出前后交换目录文件列表相同。
+- 已查看原生中文菜单截图。引擎/界面/自动化三组 all-targets Clippy（`-D warnings`）通过；31 crates 分层检查通过；24 crates 的 wasm32 检查及 codecs 的 heif 特性检查通过；源码补丁反向应用校验通过。
+- 扩大检查：自动化单元测试 102 项通过；引擎单元测试 2460 项通过（16 项忽略），已运行的引擎集成测试通过。默认栈运行曾在 `same_pixels_ignores_the_selection_but_not_layers` 栈溢出，增大测试线程栈到 `RUST_MIN_STACK=16777216` 后引擎测试通过。
+- **全量界面测试不是全绿：4444 项通过，23 项失败，21 项忽略。** 其中 21 项报告测试渲染器缺少中/日/阿拉伯文等字形；2 项字体界面测试超过测试工具的 8 帧上限，日志说明需要 10 帧。未修改这些测试或加入跳过规则。构建未配置可选 `CRAFT_FONTS_DIR`；Windows 程序实机使用系统中文字体，菜单已验证正常。
+- 系统剪贴板为 8-bit RGBA，最多 6400 万像素；接收软件可能丢弃透明度。
+
+English: Full-canvas export was verified through a real Windows clipboard readback, including transparency and pixels outside the selection, with no export file or document mutation. Three engine tests, two UI tests, and one authorization test cover the feature. Clippy, layering, and wasm checks pass. The complete UI suite is **not all green**: 4,444 passed, 23 failed, and 21 ignored. Twenty-one failures report missing test-renderer glyphs; two exceed the harness frame budget. The desktop Chinese menu was checked visually using system font fallback. Output is 8-bit RGBA, limited to 64 million pixels.
+
+---
+
 # 本机验证记录
 
 ## 0.2.9 图层右键可调羽化

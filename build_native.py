@@ -16,7 +16,7 @@ output.mkdir(exist_ok=True)
 shutil.copy2(source / 'target/debug/photocraft.exe', output / 'photocraft.exe')
 for name in ('LICENSE-MIT', 'LICENSE-APACHE', 'NOTICE', 'ATTRIBUTION.md'):
     shutil.copy2(source / name, output / name)
-info = {'version': 'development', 'photocraft_version': '0.18.0',
+info = {'version': '0.2.10', 'photocraft_version': '0.18.0',
         'source_commit': subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=source, text=True).strip(),
         'profile': 'development',
         'exe_sha256': hashlib.sha256((output / 'photocraft.exe').read_bytes()).hexdigest(),

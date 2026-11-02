@@ -4,4 +4,4 @@
 *.toml text eol=lf
 *.json text eol=lf
 *.cmd text eol=crlf
-*.patch text eol=lf whitespace=-blank-at-eol
+*.patch text eol=lf whitespace=-blank-at-eol,-space-before-tab

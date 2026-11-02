@@ -4,14 +4,22 @@ import subprocess
 
 root = Path(__file__).resolve().parent
 source = root / 'research/photocraft'
-subprocess.run(['git', 'add', '-N', 'crates/ui-egui/src/codex_ai.rs'], cwd=source, check=True)
+subprocess.run(['git', 'add', '-N', 'crates/ui-egui/src/codex_ai.rs',
+                'crates/engine/src/cmd/clipboard_export_cmds.rs'], cwd=source, check=True)
 patch = subprocess.check_output(['git', 'diff', '--binary', 'HEAD', '--',
     'crates/ui-egui/src/codex_ai.rs', 'crates/ui-egui/src/canvas.rs',
     'crates/ui-egui/src/control/inspect.rs', 'crates/ui-egui/src/lib.rs',
     'crates/ui-egui/src/state.rs', 'crates/ui-egui/src/panels/layer_menu_ui.rs',
     'crates/ui-egui/src/panels/layer_menu_ui/tests.rs',
     'crates/engine/src/cmd/layer_mask_props_cmds.rs',
-    'crates/engine/src/cmd/layer_mask_props_cmds/tests.rs'], cwd=source)
+    'crates/engine/src/cmd/layer_mask_props_cmds/tests.rs',
+    'crates/engine/src/cmd.rs', 'crates/engine/src/cmd/clipboard_export_cmds.rs',
+    'crates/ui-egui/src/app/clipboard.rs', 'crates/ui-egui/src/app/clipboard_tests.rs',
+    'crates/ui-egui/src/app/commands.rs', 'crates/ui-egui/src/menu_catalog.rs',
+    'crates/ui-egui/src/menus/state.rs', 'crates/ui-egui/src/i18n/zh-hans.tsv',
+    'crates/ui-egui/src/i18n/zh-hant.tsv', 'docs/control-protocol.md',
+    'docs/parity-checklist.md', 'crates/automation/src/workspace.rs',
+    'crates/automation/src/workspace/tests.rs'], cwd=source)
 destination = root / 'native-source/photocraft-codex.patch'
 destination.write_bytes(patch)
 print(destination)

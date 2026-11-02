@@ -2,6 +2,10 @@
 
 **原生选区 AI 工具栏 / Native selection AI toolbar**
 
+**开发版 0.2.10：导出到剪贴板。** 在 **文件 → 导出 → 导出到剪贴板** 中，一次复制整张画布的可见图层合成结果，再到其他软件按 Ctrl+V 粘贴。无需选择文件夹或创建导出文件，保留透明度，不受选区影响，不改变文档或撤销记录。系统剪贴板使用 8-bit RGBA，最多支持 6400 万像素；目标软件可能不保留透明度。
+
+**Development preview 0.2.10: Export to Clipboard.** Choose **File → Export → Export to Clipboard** to copy the full visible canvas, then press Ctrl+V in another app. No folder picker or exported file is needed. Transparency is preserved, the selection is ignored, and the document and undo history remain unchanged. The system clipboard uses 8-bit RGBA with a 64-million-pixel limit; the receiving app may discard transparency.
+
 [中文](#中文说明) · [English](#english) · [下载 / Download v0.2.9](https://github.com/kaliwell/photocraft-codex-ai/releases/tag/v0.2.9)
 
 ![PhotoCraft 原生 AI 工具栏 / Native AI toolbar](examples/native-toolbar-final.png)
