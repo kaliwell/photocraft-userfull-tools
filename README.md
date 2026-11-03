@@ -1,4 +1,8 @@
-# PhotoCraft Userfull Tools 0.3.2
+# PhotoCraft Userfull Tools 0.3.3
+
+新增 **长图切割**：顶部按钮或文件导出菜单打开，标记/拖动切割线、实时分段预览、PNG ZIP 导出、自动保存及 LongPicCutter JSON 方案互通。**生成图片** 默认 1:1，等比放入选区。详见 [使用说明](docs/long-image-cutter.md)。
+
+New: native **Long image cutter**, PNG ZIP export, local cut-plan recovery and LongPicCutter JSON interchange. **Generate image** defaults to 1:1 and proportionally fits the selection. See [instructions](docs/long-image-cutter.md).
 
 已合并原插件 v0.3.1：编辑器升级至 PhotoCraft 0.19.0，修复向内羽化并显示生成耗时。保留标题栏“复制图片”和“文件 → 导出 → 导出到剪贴板”，复制完整画布并保留透明度。
 

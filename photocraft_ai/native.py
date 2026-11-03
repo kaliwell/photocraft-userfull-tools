@@ -64,7 +64,7 @@ class NativeWorker:
                 prompt = request.get('prompt', '').strip()
                 if mode == 'generate':
                     prompt = '在标记选区内根据以下描述生成新的画面内容：' + prompt
-                prepared = service.prepare('remove' if mode == 'remove' else 'fill', prompt,
+                prepared = service.prepare(mode, prompt,
                                            feather_px=0 if mode == 'generate' else 12)
             self.update(job=str(prepared.job))
             result = service.generate(prepared, self.cancel, lambda text: self.update(message=text))

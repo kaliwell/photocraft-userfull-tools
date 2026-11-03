@@ -75,6 +75,19 @@ def clipped_layer(generated: Image.Image, mask: Image.Image, feather_px: int = 0
     return rgba
 
 
+def generated_layer(generated: Image.Image, mask: Image.Image) -> Image.Image:
+    """Place new artwork proportionally inside the selection, without cropping or stretching."""
+    bounds = mask.getbbox()
+    if bounds is None:
+        raise RuntimeError('选区为空。')
+    left, top, right, bottom = bounds
+    fitted = ImageOps.contain(generated.convert('RGBA'), (right-left, bottom-top), Image.Resampling.LANCZOS)
+    layer = Image.new('RGBA', mask.size)
+    layer.paste(fitted, (left+(right-left-fitted.width)//2, top+(bottom-top-fitted.height)//2))
+    layer.putalpha(ImageChops.multiply(layer.getchannel('A'), mask))
+    return layer
+
+
 class Service:
     def __init__(self, bridge: PhotoCraftBridge, root: Path, backend=None):
         self.bridge, self.root = bridge, root
@@ -82,7 +95,7 @@ class Service:
         self.lock = threading.Lock()
 
     def prepare(self, mode: str, prompt: str, size='1024x1024', *, feather_px=12) -> Prepared:
-        if mode not in ('create', 'fill', 'remove'):
+        if mode not in ('create', 'fill', 'remove', 'generate'):
             raise ValueError('未知模式')
         if mode != 'remove' and not prompt.strip():
             raise ValueError('请输入画面描述。')
@@ -110,17 +123,21 @@ class Service:
             overlay.putalpha(mask.point(lambda p: round(p * .55)))
             Image.alpha_composite(full, overlay).save(guide)
             revision = self.bridge._revision(target)
+            if mode == 'generate':
+                source, guide = None, None
         if mode == 'remove':
             prompt = '移除标记区域中的物体，根据周围环境自然补全，保持光照、纹理和透视一致。'
         meta = {'mode': mode, 'prompt': prompt, 'size': dims,
                 'document': target.name if target else None, 'revision': revision,
-                'feather_px': feather_px if mode != 'create' else 0}
+                'feather_px': feather_px if mode != 'create' else 0,
+                'generation_size': '1024x1024' if mode == 'generate' else dims}
         (job / 'job.json').write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding='utf-8')
         return Prepared(job, mode, prompt, target, revision, dims, mask, source, guide, feather_px)
 
     def generate(self, prepared: Prepared, cancel: threading.Event, progress) -> Path:
         return self.backend.generate(prepared.job, prepared.prompt, prepared.mode, cancel, progress,
-                                     prepared.source, prepared.guide, 'x'.join(map(str, prepared.size)))
+                                     prepared.source, prepared.guide,
+                                     '1024x1024' if prepared.mode == 'generate' else 'x'.join(map(str, prepared.size)))
 
     def apply(self, prepared: Prepared, path: Path):
         b = self.bridge
@@ -141,7 +158,7 @@ class Service:
                 # feather. Hard support guarantees the selection's exterior stays untouched.
                 support = prepared.mask.point([0] + [255] * 255)
                 prepared.mask.save(prepared.job / 'blend-mask.png')
-                layer = clipped_layer(image, prepared.mask)
+                layer = generated_layer(image, prepared.mask) if prepared.mode == 'generate' else clipped_layer(image, prepared.mask)
             output = prepared.job / 'layer.png'
             layer.save(output)
             b.insert_results(prepared.target, [output.read_bytes()], Rect(0, 0, *prepared.size),

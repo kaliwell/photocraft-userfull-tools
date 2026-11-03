@@ -6,7 +6,7 @@ import shutil
 import zipfile
 
 ROOT = Path(__file__).resolve().parent
-VERSION = '0.3.2'
+VERSION = '0.3.3'
 output = ROOT / f'dist/photocraft-codex-ai-{VERSION}-windows-x64-local-node'
 output.mkdir(parents=True, exist_ok=False)
 python = output / 'python'
@@ -17,7 +17,7 @@ wheel = next((ROOT / 'runtime/portable-downloads').glob('pillow-11.3.0-cp313-cp3
 with zipfile.ZipFile(wheel) as archive:
     archive.extractall(python / 'Lib/site-packages')
 (python / 'python313._pth').write_text('python313.zip\n.\n..\nLib/site-packages\nimport site\n', encoding='utf-8')
-for folder in ('photocraft_ai', 'vendor', 'native-source', 'examples'):
+for folder in ('photocraft_ai', 'vendor', 'native-source', 'examples', 'docs'):
     shutil.copytree(ROOT / folder, output / folder, ignore=shutil.ignore_patterns('__pycache__', '*.pyc'))
 shutil.copytree(ROOT / 'native-0.19', output / 'native',
                 ignore=shutil.ignore_patterns('photocraft.exe', 'photocraft-next.exe'))

@@ -32,3 +32,5 @@ python build_native.py
 上游许可证和通知随二进制保存于 `native/`。源码补丁遵循上游 MIT OR Apache-2.0。
 
 Additional tools: title-bar Copy image, file.export.clipboard, localized export menu, and ui.inspect.clipboardExport. Full visible canvas export preserves transparency and ignores selections.
+
+Userfull Tools 0.3.3 adds `long_cut.rs`, the `tools.longCut.open` UI command, title-bar and File/Export entries, a frame hook, isolated cutter keyboard shortcuts and `ui.inspect.longCut`. This native Rust implementation independently provides cutting and LongPicCutter JSON data interchange. See `docs/long-image-cutter.md`.

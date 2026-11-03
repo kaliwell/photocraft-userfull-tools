@@ -1,3 +1,16 @@
+# Userfull Tools 0.3.3 validation (2026-11-03)
+
+- 40 Python tests pass, including square generation on widescreen documents, proportional placement of a mismatched model result, alpha preservation and guarded single-layer application.
+- 5 native cutter tests pass: plan validation and LongPicCutter JSON interchange, continuous original rows, PNG payloads, clipboard/selection/document/history preservation and fast dragging constrained by adjacent cuts.
+- Real Windows cutter window: click, S, Delete and Ctrl+Z passed. Cuts restored after relaunch from local cache.
+- Exported a real ZIP through the native Save dialog. Python zipfile verified CRC and archive structure. Four PNGs (240x82, 240x38, 240x90, 240x990) reconstructed the full 240x1200 source exactly, including alpha. Source document and selection were unchanged.
+- A real JSON export was verified against the LongPicCutter version-1 format. Chinese/English UI checked visually.
+- UI all-targets Clippy (-D warnings), wasm UI check and reverse source-patch application check pass.
+- No new live image generation was requested. A retained failed result was recovered locally only after document/revision checks; it became one undoable layer.
+- Historical full-regression limitations below remain applicable; no full-suite pass is claimed for this version.
+
+---
+
 # Userfull Tools 0.3.2 integration validation (2026-11-03)
 
 Upstream v0.3.1, editor PhotoCraft 0.19.0. Retains full-canvas clipboard export and the title-bar Copy image button. Adapted the new Clip.components field explicitly to full RGBA output.

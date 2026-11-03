@@ -1,4 +1,9 @@
-# PhotoCraft Userfull Tools 0.3.2
+# PhotoCraft Userfull Tools 0.3.3
+
+- 新增原生长图切割、切割线编辑、实时预览、PNG ZIP 和 JSON 方案导入导出；本机自动保存，无图片上传。
+- 生图默认请求 1:1，结果等比放入选区，修复生成结果与整张画布比例不同被拒绝导入的问题。局部修改、移除物体继续保留原画布对齐检查。
+- Native long-image cutting, editable cut lines, live preview, PNG ZIP and interoperable JSON plans with local persistence.
+- Square generation by default; proportionally places new artwork inside the selection. Fill/remove retain canvas-alignment checks.
 
 合并原插件 v0.3.1 和 PhotoCraft 0.19.0，保留顶部“复制图片”和剪贴板导出功能。适配新版剪贴板数据结构；不替换正在运行的旧版。
 

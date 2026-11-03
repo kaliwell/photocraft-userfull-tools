@@ -28,3 +28,7 @@ The optional `native/photocraft.exe` is a locally rebuilt PhotoCraft 0.19.0, bas
 https://github.com/storytold/photocraft at `2df9f807702a935184041355a86405380bda8274`.
 PhotoCraft is MIT OR Apache-2.0; its LICENSE-MIT, LICENSE-APACHE, NOTICE and ATTRIBUTION.md
 are preserved alongside the binary. The local source patch is in `native-source/`.
+
+# Feature inspiration: LongPicCutter
+
+The long-image cutting workflow was inspired by [kaliwell/LongPicCutter](https://github.com/kaliwell/LongPicCutter), based on wumingluren/LongPicCutter. That repository did not specify a license at the inspected revision `6b9bb3b93929eb45e8f05743aea7a47b1ebdedf8`. This distribution contains an independently written Rust/egui implementation and no source or assets from LongPicCutter. JSON plan format compatibility is provided for user data interchange.

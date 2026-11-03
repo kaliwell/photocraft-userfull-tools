@@ -4,7 +4,7 @@ import subprocess
 
 root = Path(__file__).resolve().parent
 source = root / 'research/photocraft-0.19'
-subprocess.run(['git', 'add', '-N', 'crates/ui-egui/src/codex_ai.rs', 'crates/engine/src/cmd/clipboard_export_cmds.rs'], cwd=source, check=True)
+subprocess.run(['git', 'add', '-N', 'crates/ui-egui/src/codex_ai.rs', 'crates/engine/src/cmd/clipboard_export_cmds.rs', 'crates/ui-egui/src/long_cut.rs'], cwd=source, check=True)
 patch = subprocess.check_output(['git', 'diff', '--binary', 'HEAD', '--',
     'crates/ui-egui/src/codex_ai.rs', 'crates/ui-egui/src/canvas.rs',
     'crates/ui-egui/src/control/inspect.rs', 'crates/ui-egui/src/lib.rs',
@@ -16,6 +16,7 @@ patch = subprocess.check_output(['git', 'diff', '--binary', 'HEAD', '--',
     'crates/engine/src/cmd/smart_cmds/filters.rs',
     'crates/engine/src/cmd/smart_svg_cmds/tests.rs',
     'crates/engine/src/cmd/smartselect_cmds/tests.rs',
+    'crates/ui-egui/src/long_cut.rs', 'crates/ui-egui/src/app.rs', 'crates/ui-egui/src/app/frame.rs', 'crates/ui-egui/src/input/shortcuts.rs',
     'crates/automation/src/workspace.rs', 'crates/automation/src/workspace/tests.rs',
     'crates/engine/src/cmd.rs', 'crates/engine/src/cmd/clipboard_export_cmds.rs',
     'crates/ui-egui/src/app/clipboard.rs', 'crates/ui-egui/src/app/clipboard_tests.rs',
