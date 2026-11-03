@@ -1,4 +1,9 @@
-# PhotoCraft Userfull Tools 0.3.5
+# PhotoCraft Userfull Tools 0.3.6
+
+- 新增图片拖入、多选和缩略图参考栏，支持单张移除与横向滚动。拖到工具栏外仍按原方式打开图片。
+- 所选参考图按顺序作为图片附件发送；提示词中的“图1/图2”按参考图编号解释。
+- 不固定图片张数，显示 Codex 实际输入限制错误；保留本地资源保护。参考图不自动降低像素分辨率，支持 EXIF 转正。
+- Multi-image drag/drop and selection, numbered removable thumbnails and horizontal scrolling. Sends actual ordered image attachments to Codex; no fixed count cap. Maintains original pixel dimensions and existing outside-composer drop behavior. Local resource guards remain.
 
 - 切图窗口默认跟随编辑器尺寸，新增最大化/还原，操作区高度随窗口变化。
 - 按需求移除右侧切图预览，改为单栏大图。切割线、方案和 ZIP 导出功能保留。

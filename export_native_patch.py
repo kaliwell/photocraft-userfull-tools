@@ -7,6 +7,7 @@ source = root / 'research/photocraft-0.19'
 subprocess.run(['git', 'add', '-N', 'crates/ui-egui/src/codex_ai.rs', 'crates/engine/src/cmd/clipboard_export_cmds.rs', 'crates/ui-egui/src/long_cut.rs'], cwd=source, check=True)
 patch = subprocess.check_output(['git', 'diff', '--binary', 'HEAD', '--',
     'crates/ui-egui/src/codex_ai.rs', 'crates/ui-egui/src/canvas.rs',
+    'crates/ui-egui/src/control.rs', 'crates/ui-egui/src/control/dispatch.rs',
     'crates/ui-egui/src/control/inspect.rs', 'crates/ui-egui/src/lib.rs',
     'crates/ui-egui/src/state.rs', 'crates/ui-egui/src/panels/layer_menu_ui.rs',
     'crates/ui-egui/src/panels/layer_menu_ui/tests.rs',

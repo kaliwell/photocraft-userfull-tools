@@ -1,3 +1,15 @@
+# Userfull Tools 0.3.6 validation (2026-11-03)
+
+- 52 Python tests passed: ordered multi-reference saving, no fixed five-image cap (seven references verified), EXIF orientation with original resolution, invalid-image and memory guards, scoped worker payloads, exact CLI --image arguments, and surfacing Codex input-limit messages.
+- Eight native AI-toolbar tests passed, covering thumbnails and payload order, batches above five, virtual dropped-file routing inside/outside the composer, and automation read-root enforcement.
+- Local real-image QA used five user-supplied JPEG/PNG files without modifying originals. The gallery displayed all five. Single-image removal worked. The real multi-select dialog then added two pictures to four remaining references, displaying six without a fixed five-image cap.
+- A localhost test receiver verified all five original image byte hashes and order in the actual outgoing generation request. A fake CLI verified attachment arguments and role instructions. No real AI generation was requested during QA.
+- Native OS-level drag simulation did not complete in this automation environment; drag routing was exercised with dropped-file handles in native tests. Actual gallery, removal, multi-select and request transmission were checked in the native window. Screenshots with user images remain local in audit and are not included in the repository or portable package.
+- UI all-targets Clippy (-D warnings), wasm UI check and reverse patch check passed. Full-suite limitations from earlier versions remain below.
+- No fixed Codex image-count or service-size limit is asserted. The plugin surfaces Codex input errors; local source-byte/decode protection is documented separately.
+
+---
+
 # Userfull Tools 0.3.5 validation (2026-11-03)
 
 Removed slice preview; one full-width source view. Default cutter size follows the editor viewport; Maximize/Restore and dynamic scroll height replace the fixed 950x650 dialog and 480-pixel scroll area.

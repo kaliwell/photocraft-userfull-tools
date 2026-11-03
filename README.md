@@ -1,4 +1,8 @@
-# PhotoCraft Userfull Tools 0.3.5
+# PhotoCraft Userfull Tools 0.3.6
+
+新增 **多图参考**：直接把图片拖到选区提示词工具栏，显示缩略图，支持多选、移除和按编号使用。图片作为真实附件传给 Codex，不固定张数，由 Codex 实际校验；保留必要的本地内存保护。详见 [参考图说明](docs/reference-images.md)。
+
+New: drag multiple pictures into the selection AI composer, preview/remove numbered thumbnails and send them as actual Codex image attachments. No fixed image-count cap; Codex errors are surfaced, with local memory guards. See [reference image instructions](docs/reference-images.md).
 
 切图窗口改为单栏大图，移除右侧预览；默认尺寸随编辑器窗口放大，支持最大化/还原，图像操作区高度随窗口调整。
 

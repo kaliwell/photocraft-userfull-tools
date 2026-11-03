@@ -13,6 +13,7 @@ import time
 from .__main__ import ROOT, RUNTIME, connect, panel_lock
 from .backend import Cancelled
 from .service import Service
+from .references import validate_references
 
 API_PORT = 17879
 EDITOR_PORT = 17880
@@ -40,6 +41,7 @@ class NativeWorker:
             raise ValueError('请求参数无效。')
         if mode != 'remove' and not prompt.strip():
             raise ValueError('请先输入画面描述。')
+        validate_references(request.get('references',[]))
         with self.lock:
             if self.state['busy']:
                 raise ValueError('已有生成任务正在运行。')
@@ -65,8 +67,11 @@ class NativeWorker:
                 if mode == 'generate':
                     prompt = '在标记选区内根据以下描述生成新的画面内容：' + prompt
                 prepared = service.prepare(mode, prompt,
-                                           feather_px=0 if mode == 'generate' else 12)
+                                           feather_px=0 if mode == 'generate' else 12,
+                                           references=request.get('references',[]))
             self.update(job=str(prepared.job))
+            if self.cancel.is_set():
+                raise Cancelled('cancelled')
             result = service.generate(prepared, self.cancel, lambda text: self.update(message=text))
             if self.cancel.is_set():
                 raise Cancelled('已取消')
@@ -119,7 +124,7 @@ def handler(worker: NativeWorker, token: str):
                 return
             try:
                 length = int(self.headers.get('Content-Length', '0'))
-                if length < 0 or length > 32768:
+                if length < 0 or length > 350*1024*1024:
                     raise ValueError('请求过大')
                 request = json.loads(self.rfile.read(length) or b'{}')
                 if not isinstance(request, dict):

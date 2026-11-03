@@ -34,3 +34,5 @@ python build_native.py
 Additional tools: title-bar Copy image, file.export.clipboard, localized export menu, and ui.inspect.clipboardExport. Full visible canvas export preserves transparency and ignores selections.
 
 Userfull Tools 0.3.3 adds `long_cut.rs`, the `tools.longCut.open` UI command, title-bar and File/Export entries, a frame hook, isolated cutter keyboard shortcuts and `ui.inspect.longCut`. This native Rust implementation independently provides cutting and LongPicCutter JSON data interchange. See `docs/long-image-cutter.md`.
+
+0.3.6 adds composer image attachments, scoped file-drop routing in `app/frame.rs`, bounded asynchronous thumbnail loading and authenticated `ui.codexAI.references` automation. See `docs/reference-images.md`.
