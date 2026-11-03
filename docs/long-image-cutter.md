@@ -5,7 +5,7 @@
 1. 在 PhotoCraft 中打开长图，点击顶部 **长图切割**，或 **文件 → 导出 → 长图切割**。
 2. 工具读取当前完整可见画布的快照，忽略选区；打开后对原文档的编辑不会自动刷新快照。需要刷新时关闭工具并重新打开。
 3. 左侧点击或将鼠标放在图片上按 **S**，在原图像素行添加切割线；拖动红线调整。**Delete** 删除鼠标附近的线，**Ctrl+Z** 撤销。快捷键在鼠标位于左侧图片且不在文本输入时生效。
-4. 右侧实时预览切图，两栏可独立滚动。点击 **导出 PNG ZIP**，选择保存位置。各段保持原图宽度，连续覆盖每一行，保留 8-bit RGBA 透明度。
+4. 从 0.3.5 起使用单栏大图，移除右侧切图预览。窗口默认随编辑器尺寸放大，可拖边缩放或点击 **最大化 / 还原**，图像操作区高度随窗口变化。点击 **导出 PNG ZIP**，选择保存位置。各段保持原图宽度，连续覆盖每一行，保留 8-bit RGBA 透明度。
 5. 切割线自动保存在本机配置目录，按完整画布像素内容和尺寸识别；同一张图重新打开可以恢复。编辑画布后内容不同，视为新图。
 6. **导出方案** 保存兼容 LongPicCutter v1 的 JSON；**导入方案** 仅接受相同宽高的方案，确认后替换。清空也需要确认。
 
@@ -13,7 +13,7 @@
 
 ## English
 
-Open **Long image cutter** from the title bar or File → Export. The native window snapshots the full visible canvas without altering the selection, clipboard, or history. Click or press S over the source to mark a row; drag a red line to move it, Delete to remove a nearby line, and Ctrl+Z to undo. The right side previews slices immediately, with independent scrolling.
+Open **Long image cutter** from the title bar or File → Export. The native window snapshots the full visible canvas without altering the selection, clipboard, or history. Click or press S over the source to mark a row; drag a red line to move it, Delete to remove a nearby line, and Ctrl+Z to undo. Since 0.3.5, the cutter has one full-width source view with no slice preview. Its default size follows the editor window, with Maximize/Restore, manual resizing and a dynamically sized image area.
 
 Export a ZIP of lossless RGBA8 PNG slices at original width, or exchange a version-1 JSON plan with LongPicCutter. Import requires identical dimensions and confirmation. Cuts are saved locally by canvas content and dimensions. Reopen the tool to refresh a snapshot after editing the document. Limits: 64 million pixels, 1,024 cuts, 512 MiB ZIP. No image is uploaded. This is an independent implementation inspired by LongPicCutter, with no source copied from that project.
 

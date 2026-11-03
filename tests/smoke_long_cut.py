@@ -34,11 +34,14 @@ def main():
     restored=state['cuts']
     if args.expect_restored:assert restored==[82,120,210],restored
     x,y,w,h=state['sourceRect']
-    c.call('ui.click',x=x+w/2,y=y+h*50/1200)
+    c.call('ui.click',x=x+w/2,y=y+h*10/1200)
     assert len(c.call('ui.inspect')['longCut']['cuts'])==len(restored)+1
+    x,y,w,h=c.call('ui.inspect')['longCut']['sourceRect']
+    c.call('ui.move',x=x+w/2,y=y+h*10/1200)
     c.call('ui.key',key='Z',command=True)
     assert c.call('ui.inspect')['longCut']['cuts']==restored
-    c.call('ui.move',x=x+w/2,y=y+h*180/1200)
+    x,y,w,h=c.call('ui.inspect')['longCut']['sourceRect']
+    c.call('ui.move',x=x+w/2,y=y+h*20/1200)
     c.call('ui.key',key='S')
     assert len(c.call('ui.inspect')['longCut']['cuts'])==len(restored)+1
     c.call('ui.key',key='Delete')

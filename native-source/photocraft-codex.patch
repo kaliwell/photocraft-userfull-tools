@@ -1510,10 +1510,10 @@ index e17b2bc..194f286 100644
      /// Where each document was last saved or exported to through a dialog (#1826): its next Save
 diff --git a/crates/ui-egui/src/long_cut.rs b/crates/ui-egui/src/long_cut.rs
 new file mode 100644
-index 0000000..37bdd1c
+index 0000000..a466fdc
 --- /dev/null
 +++ b/crates/ui-egui/src/long_cut.rs
-@@ -0,0 +1,545 @@
+@@ -0,0 +1,565 @@
 +//! Independently implemented long-image cutter. No LongPicCutter source is included.
 +use crate::PhotocraftApp;
 +use serde::{Deserialize, Serialize};
@@ -1580,6 +1580,7 @@ index 0000000..37bdd1c
 +    confirm_import: Option<Plan>,
 +    export: Option<mpsc::Receiver<Result<Vec<u8>, String>>>,
 +    source_rect: Option<egui::Rect>,
++    maximized: bool,
 +}
 +
 +fn cache_path(width: u32, height: u32, pixels: &[u8]) -> Option<std::path::PathBuf> {
@@ -1625,6 +1626,7 @@ index 0000000..37bdd1c
 +        confirm_import: None,
 +        export: None,
 +        source_rect: None,
++        maximized: false,
 +    });
 +    Ok(json!({"width":width,"height":height,"open":true}))
 +}
@@ -1701,144 +1703,143 @@ index 0000000..37bdd1c
 +            }
 +        }
 +    }
-+    egui::Window::new("长图切割 / Long image cutter").id(egui::Id::unique("long-cut")).open(&mut opened).default_size(egui::vec2(950.0, 650.0)).show(
-+        ctx,
-+        |ui| {
-+            ui.label("当前画布快照 · 点击或 S 标记 · 拖动红线调整 · Delete 删除附近线 · Ctrl+Z 撤销");
-+            ui.label("Snapshot of current canvas · Click/S: mark · Drag line: move · Delete: remove · Ctrl+Z: undo");
-+            ui.horizontal_wrapped(|ui| {
-+                if ui.button("标记 / Mark").clicked()
-+                    && let Some(y) = state.hover
++    let screen = ctx.content_rect();
++    let size = egui::vec2((screen.width() - 40.0).max(240.0), (screen.height() - 100.0).max(220.0));
++    let mut window = egui::Window::new("长图切割 / Long image cutter")
++        .id(egui::Id::unique(if state.maximized { "long-cut-max" } else { "long-cut-large" }))
++        .open(&mut opened)
++        .default_pos(screen.min + egui::vec2(20.0, 20.0))
++        .default_size(size)
++        .resizable(true);
++    if state.maximized {
++        window = window.fixed_rect(egui::Rect::from_min_size(
++            screen.min + egui::vec2(8.0, 8.0),
++            egui::vec2((screen.width() - 28.0).max(200.0), (screen.height() - 64.0).max(180.0)),
++        ));
++    }
++    window.show(ctx, |ui| {
++        ui.label("当前画布快照 · 点击或 S 标记 · 拖动红线调整 · Delete 删除附近线 · Ctrl+Z 撤销");
++        ui.label("Snapshot of current canvas · Click/S: mark · Drag line: move · Delete: remove · Ctrl+Z: undo");
++        ui.horizontal_wrapped(|ui| {
++            if ui.button(if state.maximized { "还原 / Restore" } else { "最大化 / Maximize" }).clicked() {
++                state.maximized = !state.maximized;
++            }
++            if ui.button("标记 / Mark").clicked()
++                && let Some(y) = state.hover
++            {
++                state.add(y);
++            }
++            if ui.add_enabled(!state.undo.is_empty(), egui::Button::new("撤销 / Undo")).clicked() {
++                action = "undo";
++            }
++            if ui.button("清空 / Clear").clicked() {
++                state.confirm_clear = true;
++            }
++            if ui.button("导入方案 / Import JSON").clicked() {
++                action = "import";
++            }
++            if ui.button("导出方案 / Export JSON").clicked() {
++                action = "plan";
++            }
++            if ui.add_enabled(state.export.is_none(), egui::Button::new("导出 PNG ZIP / Export ZIP")).clicked() {
++                action = "zip";
++            }
++        });
++        if state.confirm_clear {
++            ui.horizontal(|ui| {
++                ui.label("清空全部切割线？ / Clear all cuts?");
++                if ui.button("确认 / Confirm").clicked() {
++                    state.remember();
++                    state.plan.cuts.clear();
++                    state.persist();
++                    state.confirm_clear = false;
++                }
++                if ui.button("取消 / Cancel").clicked() {
++                    state.confirm_clear = false;
++                }
++            });
++        }
++        if state.confirm_import.is_some() {
++            ui.horizontal(|ui| {
++                ui.label("替换当前方案？ / Replace current cuts?");
++                if ui.button("替换 / Replace").clicked() {
++                    state.remember();
++                    if let Some(plan) = state.confirm_import.take() {
++                        state.plan = plan;
++                    }
++                    state.persist();
++                }
++                if ui.button("取消 / Cancel").clicked() {
++                    state.confirm_import = None;
++                }
++            });
++        }
++        ui.label(format!("{} × {} px · {} 段 / pieces · {}", state.plan.width, state.plan.height, state.plan.cuts.len() + 1, state.message));
++        if state.export.is_some() {
++            ui.spinner();
++            ui.label("正在编码切图 / Encoding slices…");
++        }
++        let texture = state.texture(ctx).id();
++        let width = (ui.available_width() - 18.0).max(100.0);
++        let viewport_height = (ui.available_height() - 8.0).max(100.0);
++        let height = width * state.plan.height as f32 / state.plan.width as f32;
++        egui::ScrollArea::both().id_salt("long-cut-source").max_height(viewport_height).show(ui, |ui| {
++            let response = ui.add(egui::Image::new((texture, egui::vec2(width, height))).sense(egui::Sense::click_and_drag()));
++            let rect = response.rect;
++            state.source_rect = Some(rect);
++            let position = ctx.pointer_hover_pos().filter(|p| rect.contains(*p) && ui.clip_rect().contains(*p));
++            if let Some(pos) = position {
++                let y = ((pos.y - rect.top()) / height * state.plan.height as f32).floor().clamp(0.0, state.plan.height as f32) as u32;
++                state.hover = Some(y);
++                let near = state.plan.cuts.iter().position(|&c| (c as f32 - y as f32).abs() * height / state.plan.height as f32 <= 8.0);
++                if response.drag_started() {
++                    state.drag = ctx.input(|i| i.pointer.press_origin()).and_then(|start| {
++                        state.plan.cuts.iter().position(|&row| (rect.top() + row as f32 / state.plan.height as f32 * height - start.y).abs() <= 8.0)
++                    });
++                    state.drag_before = state.plan.cuts.clone();
++                }
++                if response.dragged()
++                    && let Some(index) = state.drag
 +                {
++                    let low = if index == 0 { 1 } else { state.plan.cuts[index - 1] + 1 };
++                    let high = state.plan.cuts.get(index + 1).copied().unwrap_or(state.plan.height) - 1;
++                    state.plan.cuts[index] = y.clamp(low, high);
++                }
++                if response.clicked() || (!ctx.egui_wants_keyboard_input() && ui.input_mut(|i| i.consume_key(egui::Modifiers::NONE, egui::Key::S))) {
 +                    state.add(y);
 +                }
-+                if ui.add_enabled(!state.undo.is_empty(), egui::Button::new("撤销 / Undo")).clicked() {
++                if !ctx.egui_wants_keyboard_input()
++                    && ui.input_mut(|i| i.consume_key(egui::Modifiers::NONE, egui::Key::Delete))
++                    && let Some(index) = near
++                {
++                    state.remember();
++                    state.plan.cuts.remove(index);
++                    state.persist();
++                }
++                let py = rect.top() + y as f32 / state.plan.height as f32 * height;
++                ui.painter().hline(rect.x_range(), py, egui::Stroke::new(1.0, egui::Color32::LIGHT_BLUE));
++                response.clone().on_hover_text(format!("y = {y} px"));
++            }
++            if response.drag_stopped() && state.drag.take().is_some() {
++                state.undo.push(std::mem::take(&mut state.drag_before));
++                state.plan.cuts.sort_unstable();
++                state.plan.cuts.dedup();
++                state.persist();
++            }
++            for &y in &state.plan.cuts {
++                let py = rect.top() + y as f32 / state.plan.height as f32 * height;
++                ui.painter().hline(rect.x_range(), py, egui::Stroke::new(2.0, egui::Color32::RED));
++            }
++            if position.is_some() && !ctx.egui_wants_keyboard_input() {
++                if ui.input_mut(|i| i.consume_key(egui::Modifiers::COMMAND, egui::Key::Z)) {
 +                    action = "undo";
 +                }
-+                if ui.button("清空 / Clear").clicked() {
-+                    state.confirm_clear = true;
-+                }
-+                if ui.button("导入方案 / Import JSON").clicked() {
-+                    action = "import";
-+                }
-+                if ui.button("导出方案 / Export JSON").clicked() {
++                if ui.input_mut(|i| i.consume_key(egui::Modifiers::COMMAND, egui::Key::S)) {
 +                    action = "plan";
 +                }
-+                if ui.add_enabled(state.export.is_none(), egui::Button::new("导出 PNG ZIP / Export ZIP")).clicked() {
-+                    action = "zip";
-+                }
-+            });
-+            if state.confirm_clear {
-+                ui.horizontal(|ui| {
-+                    ui.label("清空全部切割线？ / Clear all cuts?");
-+                    if ui.button("确认 / Confirm").clicked() {
-+                        state.remember();
-+                        state.plan.cuts.clear();
-+                        state.persist();
-+                        state.confirm_clear = false;
-+                    }
-+                    if ui.button("取消 / Cancel").clicked() {
-+                        state.confirm_clear = false;
-+                    }
-+                });
 +            }
-+            if state.confirm_import.is_some() {
-+                ui.horizontal(|ui| {
-+                    ui.label("替换当前方案？ / Replace current cuts?");
-+                    if ui.button("替换 / Replace").clicked() {
-+                        state.remember();
-+                        if let Some(plan) = state.confirm_import.take() {
-+                            state.plan = plan;
-+                        }
-+                        state.persist();
-+                    }
-+                    if ui.button("取消 / Cancel").clicked() {
-+                        state.confirm_import = None;
-+                    }
-+                });
-+            }
-+            ui.label(format!("{} × {} px · {} 段 / pieces · {}", state.plan.width, state.plan.height, state.plan.cuts.len() + 1, state.message));
-+            if state.export.is_some() {
-+                ui.spinner();
-+                ui.label("正在编码切图 / Encoding slices…");
-+            }
-+            let texture = state.texture(ctx).id();
-+            let width = ((ui.available_width() - 35.0) / 2.0).max(100.0);
-+            let height = width * state.plan.height as f32 / state.plan.width as f32;
-+            ui.columns(2, |cols| {
-+                cols[0].label("原图与切割线 / Source");
-+                egui::ScrollArea::both().id_salt("long-cut-source").max_height(480.0).show(&mut cols[0], |ui| {
-+                    let response = ui.add(egui::Image::new((texture, egui::vec2(width, height))).sense(egui::Sense::click_and_drag()));
-+                    let rect = response.rect;
-+                    state.source_rect = Some(rect);
-+                    let position = ctx.pointer_hover_pos().filter(|p| rect.contains(*p) && ui.clip_rect().contains(*p));
-+                    if let Some(pos) = position {
-+                        let y = ((pos.y - rect.top()) / height * state.plan.height as f32).floor().clamp(0.0, state.plan.height as f32) as u32;
-+                        state.hover = Some(y);
-+                        let near = state.plan.cuts.iter().position(|&c| (c as f32 - y as f32).abs() * height / state.plan.height as f32 <= 8.0);
-+                        if response.drag_started() {
-+                            state.drag = ctx.input(|i| i.pointer.press_origin()).and_then(|start| {
-+                                state.plan.cuts.iter().position(|&row| {
-+                                    (rect.top() + row as f32 / state.plan.height as f32 * height - start.y).abs() <= 8.0
-+                                })
-+                            });
-+                            state.drag_before = state.plan.cuts.clone();
-+                        }
-+                        if response.dragged()
-+                            && let Some(index) = state.drag
-+                        {
-+                            let low = if index == 0 { 1 } else { state.plan.cuts[index - 1] + 1 };
-+                            let high = state.plan.cuts.get(index + 1).copied().unwrap_or(state.plan.height) - 1;
-+                            state.plan.cuts[index] = y.clamp(low, high);
-+                        }
-+                        if response.clicked() || (!ctx.egui_wants_keyboard_input() && ui.input_mut(|i| i.consume_key(egui::Modifiers::NONE, egui::Key::S))) {
-+                            state.add(y);
-+                        }
-+                        if !ctx.egui_wants_keyboard_input()
-+                            && ui.input_mut(|i| i.consume_key(egui::Modifiers::NONE, egui::Key::Delete))
-+                            && let Some(index) = near
-+                        {
-+                            state.remember();
-+                            state.plan.cuts.remove(index);
-+                            state.persist();
-+                        }
-+                        let py = rect.top() + y as f32 / state.plan.height as f32 * height;
-+                        ui.painter().hline(rect.x_range(), py, egui::Stroke::new(1.0, egui::Color32::LIGHT_BLUE));
-+                        response.clone().on_hover_text(format!("y = {y} px"));
-+                    }
-+                    if response.drag_stopped() && state.drag.take().is_some() {
-+                        state.undo.push(std::mem::take(&mut state.drag_before));
-+                        state.plan.cuts.sort_unstable();
-+                        state.plan.cuts.dedup();
-+                        state.persist();
-+                    }
-+                    for &y in &state.plan.cuts {
-+                        let py = rect.top() + y as f32 / state.plan.height as f32 * height;
-+                        ui.painter().hline(rect.x_range(), py, egui::Stroke::new(2.0, egui::Color32::RED));
-+                    }
-+                    if position.is_some() && !ctx.egui_wants_keyboard_input() {
-+                        if ui.input_mut(|i| i.consume_key(egui::Modifiers::COMMAND, egui::Key::Z)) {
-+                            action = "undo";
-+                        }
-+                        if ui.input_mut(|i| i.consume_key(egui::Modifiers::COMMAND, egui::Key::S)) {
-+                            action = "plan";
-+                        }
-+                    }
-+                });
-+                cols[1].label("切图预览 / Slices");
-+                egui::ScrollArea::both().id_salt("long-cut-slices").max_height(480.0).show(&mut cols[1], |ui| {
-+                    for (i, (a, b)) in state.plan.ranges().iter().enumerate() {
-+                        let uv = egui::Rect::from_min_max(
-+                            egui::pos2(0.0, *a as f32 / state.plan.height as f32),
-+                            egui::pos2(1.0, *b as f32 / state.plan.height as f32),
-+                        );
-+                        ui.label(format!("{:03} · {} × {} px", i + 1, state.plan.width, b - a));
-+                        ui.add(egui::Image::new((texture, egui::vec2(width, (b - a) as f32 * width / state.plan.width as f32))).uv(uv));
-+                    }
-+                });
-+            });
-+        },
-+    );
++        });
++    });
 +    if action == "undo"
 +        && let Some(cuts) = state.undo.pop()
 +    {
@@ -1982,22 +1983,41 @@ index 0000000..37bdd1c
 +    use super::*;
 +    #[test]
 +    fn fast_drag_uses_press_origin_and_cannot_cross_adjacent_cuts() {
-+        let mut app=PhotocraftApp::new(photocraft_engine::Session::new(),crate::Services::default());
-+        app.run("file.new",json!({"width":240,"height":1200})).unwrap();open(&mut app).unwrap();
-+        {let state=app.long_cut.as_mut().unwrap();state.cache=None;state.add(80);state.add(120);}
-+        let ctx=egui::Context::default();
-+        let draw=|app:&mut PhotocraftApp,events| {
-+            let raw=egui::RawInput{screen_rect:Some(egui::Rect::from_min_size(egui::Pos2::ZERO,egui::vec2(1440.0,900.0))),events,..Default::default()};
-+            let mut out=ctx.run_ui(raw,|_|show(app,&ctx));out.textures_delta.clear();
++        let mut app = PhotocraftApp::new(photocraft_engine::Session::new(), crate::Services::default());
++        app.run("file.new", json!({"width":240,"height":1200})).unwrap();
++        open(&mut app).unwrap();
++        {
++            let state = app.long_cut.as_mut().unwrap();
++            state.cache = None;
++            state.add(20);
++            state.add(40);
++        }
++        let ctx = egui::Context::default();
++        let draw = |app: &mut PhotocraftApp, events| {
++            let raw =
++                egui::RawInput { screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(1440.0, 900.0))), events, ..Default::default() };
++            let mut out = ctx.run_ui(raw, |_| show(app, &ctx));
++            out.textures_delta.clear();
 +        };
-+        draw(&mut app,vec![]);draw(&mut app,vec![]);
-+        let rect=app.long_cut.as_ref().unwrap().source_rect.unwrap();
-+        let point=|row:f32|egui::pos2(rect.center().x,rect.top()+row/1200.0*rect.height());
-+        let press=point(80.0);let destination=point(150.0);
-+        draw(&mut app,vec![egui::Event::PointerMoved(press),egui::Event::PointerButton{pos:press,button:egui::PointerButton::Primary,pressed:true,modifiers:egui::Modifiers::NONE}]);
-+        draw(&mut app,vec![egui::Event::PointerMoved(destination)]);
-+        draw(&mut app,vec![egui::Event::PointerButton{pos:destination,button:egui::PointerButton::Primary,pressed:false,modifiers:egui::Modifiers::NONE}]);
-+        assert_eq!(app.long_cut.as_ref().unwrap().plan.cuts,vec![119,120]);
++        draw(&mut app, vec![]);
++        draw(&mut app, vec![]);
++        let rect = app.long_cut.as_ref().unwrap().source_rect.unwrap();
++        let point = |row: f32| egui::pos2(rect.center().x, rect.top() + row / 1200.0 * rect.height());
++        let press = point(20.0);
++        let destination = point(50.0);
++        draw(
++            &mut app,
++            vec![
++                egui::Event::PointerMoved(press),
++                egui::Event::PointerButton { pos: press, button: egui::PointerButton::Primary, pressed: true, modifiers: egui::Modifiers::NONE },
++            ],
++        );
++        draw(&mut app, vec![egui::Event::PointerMoved(destination)]);
++        draw(
++            &mut app,
++            vec![egui::Event::PointerButton { pos: destination, button: egui::PointerButton::Primary, pressed: false, modifiers: egui::Modifiers::NONE }],
++        );
++        assert_eq!(app.long_cut.as_ref().unwrap().plan.cuts, vec![39, 40]);
 +    }
 +    #[test]
 +    fn imports_longpic_plans_and_rejects_fractional_or_foreign_dimensions() {

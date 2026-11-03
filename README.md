@@ -1,10 +1,14 @@
-# PhotoCraft Userfull Tools 0.3.4
+# PhotoCraft Userfull Tools 0.3.5
+
+切图窗口改为单栏大图，移除右侧预览；默认尺寸随编辑器窗口放大，支持最大化/还原，图像操作区高度随窗口调整。
+
+The cutter now uses one large source view, without a slice preview. Its default size follows the editor window, with Maximize/Restore and a dynamically sized image area.
 
 修复局部修改/移除物体的比例报错：完整画布等比补边为 1:1 参考图，模型返回后移除补边并映射回原画布，只在原选区内导入。兼容旧任务中保留的非标准尺寸结果。模型返回比例不一致时会归一化尺寸，可能带来几何误差；原始生成文件始终保留。
 
 Fix: Fill/Remove now use a square letterboxed reference with an inverse canvas mapping. Returned sizes are normalized before selection-only import, including retained legacy jobs. Incorrect model aspect ratios may introduce geometric error; original generated files are retained.
 
-新增 **长图切割**：顶部按钮或文件导出菜单打开，标记/拖动切割线、实时分段预览、PNG ZIP 导出、自动保存及 LongPicCutter JSON 方案互通。**生成图片** 默认 1:1，等比放入选区。详见 [使用说明](docs/long-image-cutter.md)。
+新增 **长图切割**：顶部按钮或文件导出菜单打开，标记/拖动切割线、PNG ZIP 导出、自动保存及 LongPicCutter JSON 方案互通。**生成图片** 默认 1:1，等比放入选区。详见 [使用说明](docs/long-image-cutter.md)。
 
 New: native **Long image cutter**, PNG ZIP export, local cut-plan recovery and LongPicCutter JSON interchange. **Generate image** defaults to 1:1 and proportionally fits the selection. See [instructions](docs/long-image-cutter.md).
 
