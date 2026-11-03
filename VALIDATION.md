@@ -1,3 +1,16 @@
+# Userfull Tools 0.3.2 integration validation (2026-11-03)
+
+Upstream v0.3.1, editor PhotoCraft 0.19.0. Retains full-canvas clipboard export and the title-bar Copy image button. Adapted the new Clip.components field explicitly to full RGBA output.
+
+- 37 Python tests passed, with the source directory explicitly on sys.path.
+- Title-bar click/disabled-without-document unit test passed on the new editor.
+- UI, engine and automation all-targets Clippy passed with -D warnings.
+- Real Windows button click and clipboard readback passed: 320x200 canvas, transparent and half-transparent pixels, pixels outside the selection, no export file, unchanged selection/document.
+- Chinese title-bar button checked visually. No live AI generation requested during validation.
+- This integration does not claim a clean full regression suite; upstream and prior environmental limitations remain below.
+
+---
+
 # v0.2.11 标题栏复制按钮 / Title-bar Copy image button
 
 2026-11-02，Windows x64，本地开发预览版。
@@ -29,6 +42,27 @@ English: Full-canvas export was verified through a real Windows clipboard readba
 ---
 
 # 本机验证记录
+
+## 0.3.1：向内羽化与生成耗时
+
+- 修复图片 alpha 已裁到选区、普通高斯蒙版在边界仍有透明度导致的硬截断。新增独立蒙版的向内渐隐模式，最外沿覆盖为 0，向内部平滑过渡；原选区、圆形和正方形均支持，0 px 恢复硬边。
+- 向内羽化参数随 `.pcraft` 保存；标准蒙版默认保留原有高斯行为。已有图层重新调整右键羽化滑条即可应用新模式。
+- 完成提示显示从读取选区到导入新图层的总耗时，精确到 0.1 秒。
+- Windows 运行中的编辑器锁定二进制时，构建器暂存新程序，启动器在下次启动时根据构建信息加载；整合包只包含当前构建对应的编辑器。
+- Python 37 项、合成模块 413 项、蒙版引擎专项 6 项、图层菜单 18 项通过；U8/U16/F32 边界透明、渐变、大半径和原始数据保留检查通过。
+- 真实编辑器的三种蒙版、0 px 恢复、撤销/重做、保存/重开均通过。12 px 羽化实测覆盖：0、5、19、40、66、96、128、159、189、215、236、250、255。
+- 新参数的原生格式往返、all-targets Clippy、分层、wasm（24 crates + heif）及 panic_hunt 通过；补丁反向检查、二进制及补丁哈希核对通过。
+- 不声称全量回归通过：高并发引擎测试中的插件超时项单独复跑通过；原生格式及 IO 的小栈测试溢出在未修改的 0.19.0、相同开发配置下也能复现。性能基准因 Windows 拒绝执行构建脚本（os error 5）失败；素材测试的外部下载及耗时较长的完整 UI 测试已停止。
+
+## 0.3.0 升级 PhotoCraft 0.19.0
+
+- 使用正式 v0.19.0 标签，基线提交 `2df9f807702a935184041355a86405380bda8274`；在独立 worktree 迁移集成补丁，保留旧版源码和二进制。
+- 补丁仅有一处默认工具状态冲突，保留上游 Tool::Move 并加入空 AI 提示词。新增默认状态回归测试。
+- Python 37 项测试、蒙版引擎 5 项、图层菜单 22 项、AI 工具栏 4 项测试通过；分层及 wasm（24 crates + heif）检查通过。
+- 新版引擎/UI 的 all-targets Clippy、格式检查及命令注册表恶意参数 panic_hunt 检查通过（125.87 秒）。整合包内 Python 运行 37 项测试通过，二进制、补丁和依赖文件哈希已核对。
+- 实机点击原生 AI 工具栏生成图片，直接接收 PNG 约 45.14 秒，新图层、选区外不变、选区保留、0 羽化、撤销/重做均通过。
+- 0.18 生成的可编辑蒙版项目在 0.19 中打开后，另存并重新打开，逐像素结果一致。圆形/正方形菜单、滑条调整、一次撤销/重做和保存参数保留通过。
+- 仍为未优化开发构建，不将上游正式优化构建的性能数据视为本整合包性能承诺；不声称全量 UI 测试通过。
 
 ## 0.2.9 图层右键可调羽化
 

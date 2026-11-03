@@ -1,31 +1,31 @@
-# PhotoCraft Codex AI v0.2.11 · 顶部复制图片 / Title-bar Copy image
+# PhotoCraft Userfull Tools 0.3.2
 
-顶部标题栏月亮图标左侧新增“复制图片”按钮，直接调用现有的完整画布剪贴板导出功能。无文档或系统图片剪贴板不可用时禁用；窗口过窄时隐藏按钮，仍可从文件导出菜单使用。
+合并原插件 v0.3.1 和 PhotoCraft 0.19.0，保留顶部“复制图片”和剪贴板导出功能。适配新版剪贴板数据结构；不替换正在运行的旧版。
 
-Adds a Copy image button immediately before the appearance icon in the title bar. It uses the existing full-canvas clipboard export, is disabled without an open document or image clipboard service, and hides on narrow windows while remaining available in the File export menu.
+Based on upstream v0.3.1 / PhotoCraft 0.19.0. Retains the title-bar Copy image button and full-canvas Export to Clipboard, including transparency.
+
+# PhotoCraft Codex AI v0.3.1 · PhotoCraft 0.19.0
 
 ## 中文
 
-新增 **文件 → 导出 → 导出到剪贴板**。将当前画布的可见图层合成结果直接复制为系统剪贴板图片，在其他软件按 **Ctrl+V** 粘贴，无需选择文件夹或创建导出文件。
+- 修复局部修改羽化边缘仍有硬截断的问题：向选区内部平滑渐隐，最外沿完全透明。支持原选区、居中圆形和正方形蒙版，保留 0–1000 px 滑条、撤销/重做和 `.pcraft` 保存。已有图层重新调整羽化滑条即可应用。
+- 生成成功后显示本次总耗时，包含读取选区、生图和导入新图层。
+- 改进 Windows 运行中更新的二进制暂存与安装包构建，保证包内使用最新编辑器。
 
-- 复制完整画布尺寸，保留透明度，不受当前选区或活动图层影响。
-- 不改变文档、选区、图层和撤销记录，也不调用 AI 或消耗生成额度。
-- 即使关闭了自动复制到系统剪贴板的偏好设置，手动导出仍然可用。
-- 剪贴板不可用或被其他程序占用时显示错误，并保留原有内部复制内容。
-- 系统图片格式为 8-bit RGBA，支持最多 6400 万像素；接收软件可能自行丢弃透明度。
-- 保留已有的原生选区 AI 工具栏及可编辑蒙版功能。
+下载 `photocraft-codex-ai-0.3.1-windows-x64-local-node.zip`，完整解压后运行 `start.cmd`。更新前保存文档并关闭旧版，建议解压到新文件夹；需要代理时复制自己的 `runtime/codex-proxy.json`。
 
-此包为 Windows x64 开发预览版，包含配套 PhotoCraft、Python 与 Pillow，使用本机 Node.js 和已安装的 Codex CLI。保存文档并关闭旧版后，从新版 `start.cmd` 启动。
+包内包含 PhotoCraft 0.19.0、Python 3.13.5 和 Pillow 11.3.0；沿用电脑已有 Node.js、npm 安装的 Codex CLI 和自己的登录，不额外打包 Node.js/Codex，也不包含账号凭据。
+
+专项、实机、静态、wasm 和异常输入检查通过。全套回归并非全部通过：开发配置下现有深嵌套小栈问题、Windows 基准构建执行权限和外部测试素材下载限制详见 `VALIDATION.md`。仍为预览开发构建，需要网络和支持内置生图的 Codex 账号。
 
 ## English
 
-Adds **File → Export → Export to Clipboard**. Copy the composite of the current canvas's visible layers directly as a system clipboard image, then press **Ctrl+V** in another app. No folder picker or export file is required.
+- Fixes sharp feather boundaries on clipped AI results: masks now fade inward to full transparency at the outer edge. Original selection, centered circle and square masks retain their 0–1000 px controls, undo/redo and `.pcraft` persistence. Adjust an existing layer's feather slider to apply the new mode.
+- Shows total elapsed time after successful generation, including selection export, generation and import.
+- Updates Windows executable staging and packaging so the current editor build is included.
 
-- Copies the full canvas with transparency, regardless of the current selection or active layer.
-- Leaves the document, selection, layers, and undo history unchanged. No AI call or generation quota is needed.
-- Explicit export works even when automatic Copy mirroring to the system clipboard is disabled.
-- Reports an unavailable or busy clipboard and preserves the previous internal clipboard contents on failure.
-- Uses 8-bit RGBA with a 64-million-pixel limit. The receiving app may discard transparency.
-- Retains the native selection AI toolbar and editable masks.
+Download `photocraft-codex-ai-0.3.1-windows-x64-local-node.zip`, extract completely, and run `start.cmd`. Save documents and close the old version first. Extract into a new folder and copy your own `runtime/codex-proxy.json` if needed.
 
-This Windows x64 development preview includes the matching PhotoCraft editor, Python, and Pillow. It uses local Node.js and an installed Codex CLI. Save documents and close the old version before launching the new `start.cmd`.
+Includes PhotoCraft 0.19.0, Python 3.13.5 and Pillow 11.3.0. Uses local Node.js, npm-installed Codex CLI and your own sign-in; no Node.js, Codex CLI or account credentials are bundled.
+
+Focused, live-editor, static, wasm and adversarial-input checks passed. Full regression is not entirely green; existing small-stack failures in the development configuration and environment limits are documented in `VALIDATION.md`. This remains a preview development build requiring internet access and a Codex account with working built-in image generation.

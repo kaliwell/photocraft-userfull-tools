@@ -1,41 +1,28 @@
 # PhotoCraft 原生集成源码
 
-开发版 0.2.11 在顶部标题栏的外观图标左侧增加“复制图片”按钮，复用 `file.export.clipboard`。
-`ui.inspect.clipboardExport` 报告其屏幕坐标和启用状态；窗口过窄时按钮隐藏，无文档时禁用。
-Development preview 0.2.11 adds a Copy image button before the appearance control in the title bar.
-It reuses the existing export command; `ui.inspect.clipboardExport` exposes its rectangle and enabled state.
-
-基线：`storytold/photocraft`，版本 0.18.0，提交
-`422ca7beda90d927643bcd074646ebbd37706d75`。
+基线：`storytold/photocraft`，版本 0.19.0，提交
+`2df9f807702a935184041355a86405380bda8274`。
 
 修改涉及 `crates/ui-egui` 和 `crates/engine`：选区下方的 egui 工具栏、可序列化的提示词状态、
 后台本地请求、图层右键羽化控制，以及 `layer.layerMask.edit` 的居中圆形/正方形蒙版参数。
 `ui.inspect.codexAI.maskFeatherMenu` 提供菜单与控件坐标，供界面测试使用。
 图像导出、选区、图层和撤销仍通过已有引擎命令完成。
 
-开发版 0.2.10 新增 **文件 → 导出 → 导出到剪贴板**（`file.export.clipboard`）。
-引擎将整张可见画布合成为内存中的图片；桌面层通过现有系统剪贴板服务写入 RGBA8，
-无需临时导出文件。保留透明度，忽略选区，不改变文档和撤销记录；剪贴板写入失败时保留原有内部复制内容。
-实现位于 `crates/engine/src/cmd/clipboard_export_cmds.rs` 和 `crates/ui-egui/src/app/clipboard.rs`，
-相关菜单、简繁中文翻译和回归测试包含在同一补丁中。
-
-Development preview 0.2.10 adds **File → Export → Export to Clipboard** (`file.export.clipboard`).
-The engine composites the entire visible canvas in memory; the desktop uses the existing system
-clipboard service to write RGBA8 without an intermediate export file. It preserves transparency,
-ignores the selection, and leaves the document and undo history unchanged. A failed OS write
-preserves the previous internal clipboard. The patch includes the command, menu, Chinese translations,
-and regression tests. Canvases are limited to 64 million pixels.
+边缘羽化使用独立蒙版的向内渐隐：原始覆盖边界为完全透明，内部平滑过渡到不透明。
+`layer.layerMask.edit` 的 `inward: true` 开启此模式；标准蒙版的默认高斯羽化保持原有行为。
+该标志随 `.pcraft` 保存，旧文档默认为标准羽化；右键调整羽化即可应用向内模式。
+算法、缓存和原生格式的扩展位于 `crates/doc`、`crates/compose` 与 `crates/format`。
 
 在项目根目录准备源码（本机已经完成）：
 
 ```powershell
-git clone https://github.com/storytold/photocraft.git research/photocraft
-git -C research/photocraft checkout 422ca7beda90d927643bcd074646ebbd37706d75
-git -C research/photocraft apply ../../native-source/photocraft-codex.patch
+git clone https://github.com/storytold/photocraft.git research/photocraft-0.19
+git -C research/photocraft-0.19 checkout 2df9f807702a935184041355a86405380bda8274
+git -C research/photocraft-0.19 apply ../../native-source/photocraft-codex.patch
 python build_native.py
 ```
 
-依赖 Rust/MSVC 构建工具及网络下载 Cargo 依赖。构建输出 `native/photocraft.exe`，
+依赖 Python 3.11+、Rust/MSVC 构建工具及网络下载 Cargo 依赖。构建输出 `native-0.19/photocraft.exe`，
 不修改已安装的原版编辑器。`native-build.toml` 是便于本机迭代的开发配置。
 
 原生界面只在启动脚本设置 `PHOTOCRAFT_CODEX_PORT` 和 `PHOTOCRAFT_CODEX_TOKEN_FILE`
@@ -43,3 +30,5 @@ python build_native.py
 在 WebAssembly 中禁用本机后台能力，保持原有网页版本构建兼容。
 
 上游许可证和通知随二进制保存于 `native/`。源码补丁遵循上游 MIT OR Apache-2.0。
+
+Additional tools: title-bar Copy image, file.export.clipboard, localized export menu, and ui.inspect.clipboardExport. Full visible canvas export preserves transparency and ignores selections.

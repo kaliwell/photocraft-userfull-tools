@@ -3,9 +3,8 @@ from pathlib import Path
 import subprocess
 
 root = Path(__file__).resolve().parent
-source = root / 'research/photocraft'
-subprocess.run(['git', 'add', '-N', 'crates/ui-egui/src/codex_ai.rs',
-                'crates/engine/src/cmd/clipboard_export_cmds.rs'], cwd=source, check=True)
+source = root / 'research/photocraft-0.19'
+subprocess.run(['git', 'add', '-N', 'crates/ui-egui/src/codex_ai.rs', 'crates/engine/src/cmd/clipboard_export_cmds.rs'], cwd=source, check=True)
 patch = subprocess.check_output(['git', 'diff', '--binary', 'HEAD', '--',
     'crates/ui-egui/src/codex_ai.rs', 'crates/ui-egui/src/canvas.rs',
     'crates/ui-egui/src/control/inspect.rs', 'crates/ui-egui/src/lib.rs',
@@ -13,14 +12,18 @@ patch = subprocess.check_output(['git', 'diff', '--binary', 'HEAD', '--',
     'crates/ui-egui/src/panels/layer_menu_ui/tests.rs',
     'crates/engine/src/cmd/layer_mask_props_cmds.rs',
     'crates/engine/src/cmd/layer_mask_props_cmds/tests.rs',
+    'crates/doc/src/lib.rs', 'crates/compose', 'crates/format', 'crates/io',
+    'crates/engine/src/cmd/smart_cmds/filters.rs',
+    'crates/engine/src/cmd/smart_svg_cmds/tests.rs',
+    'crates/engine/src/cmd/smartselect_cmds/tests.rs',
+    'crates/automation/src/workspace.rs', 'crates/automation/src/workspace/tests.rs',
     'crates/engine/src/cmd.rs', 'crates/engine/src/cmd/clipboard_export_cmds.rs',
     'crates/ui-egui/src/app/clipboard.rs', 'crates/ui-egui/src/app/clipboard_tests.rs',
     'crates/ui-egui/src/app/commands.rs', 'crates/ui-egui/src/menu_catalog.rs',
-    'crates/ui-egui/src/menus/state.rs', 'crates/ui-egui/src/i18n/zh-hans.tsv',
-    'crates/ui-egui/src/panels/title_bar.rs',
-    'crates/ui-egui/src/i18n/zh-hant.tsv', 'docs/control-protocol.md',
-    'docs/parity-checklist.md', 'crates/automation/src/workspace.rs',
-    'crates/automation/src/workspace/tests.rs'], cwd=source)
+    'crates/ui-egui/src/menus/state.rs', 'crates/ui-egui/src/panels/title_bar.rs',
+    'crates/ui-egui/src/i18n/zh-hans.tsv', 'crates/ui-egui/src/i18n/zh-hant.tsv',
+    'docs/control-protocol.md', 'docs/parity-checklist.md',
+    'crates/ui-egui/src/dialogs/adjust_preview.rs'], cwd=source)
 destination = root / 'native-source/photocraft-codex.patch'
 destination.write_bytes(patch)
 print(destination)
