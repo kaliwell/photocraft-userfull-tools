@@ -1,205 +1,79 @@
-# PhotoCraft Userfull Tools 0.3.6
+# PhotoCraft Userfull Tools
 
-新增 **多图参考**：直接把图片拖到选区提示词工具栏，显示缩略图，支持多选、移除和按编号使用。图片作为真实附件传给 Codex，不固定张数，由 Codex 实际校验；保留必要的本地内存保护。详见 [参考图说明](docs/reference-images.md)。
+**Native PhotoCraft tools with Codex AI, multi-image references, long-image slicing, and clipboard export.**
 
-New: drag multiple pictures into the selection AI composer, preview/remove numbered thumbnails and send them as actual Codex image attachments. No fixed image-count cap; Codex errors are surfaced, with local memory guards. See [reference image instructions](docs/reference-images.md).
+**PhotoCraft 原生增强工具：Codex AI、多图参考、长图切割和剪贴板导出。**
 
-切图窗口改为单栏大图，移除右侧预览；默认尺寸随编辑器窗口放大，支持最大化/还原，图像操作区高度随窗口调整。
+[中文](#中文说明) · [English](#english) · [Download v0.3.6 / 下载](https://github.com/kaliwell/photocraft-userfull-tools/releases/tag/v0.3.6)
 
-The cutter now uses one large source view, without a slice preview. Its default size follows the editor window, with Maximize/Restore and a dynamically sized image area.
-
-修复局部修改/移除物体的比例报错：完整画布等比补边为 1:1 参考图，模型返回后移除补边并映射回原画布，只在原选区内导入。兼容旧任务中保留的非标准尺寸结果。模型返回比例不一致时会归一化尺寸，可能带来几何误差；原始生成文件始终保留。
-
-Fix: Fill/Remove now use a square letterboxed reference with an inverse canvas mapping. Returned sizes are normalized before selection-only import, including retained legacy jobs. Incorrect model aspect ratios may introduce geometric error; original generated files are retained.
-
-新增 **长图切割**：顶部按钮或文件导出菜单打开，标记/拖动切割线、PNG ZIP 导出、自动保存及 LongPicCutter JSON 方案互通。**生成图片** 默认 1:1，等比放入选区。详见 [使用说明](docs/long-image-cutter.md)。
-
-New: native **Long image cutter**, PNG ZIP export, local cut-plan recovery and LongPicCutter JSON interchange. **Generate image** defaults to 1:1 and proportionally fits the selection. See [instructions](docs/long-image-cutter.md).
-
-已合并原插件 v0.3.1：编辑器升级至 PhotoCraft 0.19.0，修复向内羽化并显示生成耗时。保留标题栏“复制图片”和“文件 → 导出 → 导出到剪贴板”，复制完整画布并保留透明度。
-
-Based on upstream v0.3.1 / PhotoCraft 0.19.0. Retains the title-bar Copy image button and full-canvas Export to Clipboard, including transparency.
-
-# PhotoCraft · Codex AI
-
-**原生选区 AI 工具栏 / Native selection AI toolbar**
-
-[中文](#中文说明) · [English](#english) · [下载 / Download v0.3.1](https://github.com/kaliwell/photocraft-codex-ai/releases/tag/v0.3.1)
-
-![PhotoCraft 原生 AI 工具栏 / Native AI toolbar](examples/native-toolbar-final.png)
+Based on PhotoCraft **0.19.0** and the upstream Codex AI integration **v0.3.1**. Current toolkit: **v0.3.6**, Windows x64 portable development build.
 
 ## 中文说明
 
-v0.3.0 将配套编辑器升级到 PhotoCraft 0.19.0，保留 AI 工具栏、直接图片回传与可调蒙版羽化。
+### 功能
 
-v0.3.1 修复羽化边缘硬截断，向选区内部渐隐到完全透明，并在生成完成后显示本次总耗时。已有图层重新调整羽化滑条即可应用新模式。
+- **选区 AI 编辑**：在选区下方局部修改、移除物体或生成图片，结果导入新图层，可撤销。
+- **多图参考**：拖入图片或一次多选，显示编号缩略图，支持单张移除和横向滚动。图片作为真实附件发送，可指定“参考图1的场景、参考图2的结构”。
+- **长图切割**：单栏大图、最大化/还原、切割线编辑和撤销、PNG ZIP 导出、方案自动恢复及 LongPicCutter JSON 互通。
+- **复制完整画布**：顶部“复制图片”或“文件 → 导出 → 导出到剪贴板”，保留透明度，无需先保存到文件夹。
+- **尺寸适配与羽化**：默认方图生成；局部编辑使用方形补边参考图和原画布反向映射，仅应用选区。支持可编辑向内羽化、蒙版形状和 0–1000 px 调整。
 
-在 PhotoCraft 编辑器内部，通过选区下方的原生工具栏进行**局部修改、移除物体和生成图片**。使用本机 Codex CLI 的内置生图能力及已有登录，生成结果自动添加为新图层，支持撤销。
+### 下载与安装
 
-### 下载与启动
+1. 打开 [v0.3.6 发布页](https://github.com/kaliwell/photocraft-userfull-tools/releases/tag/v0.3.6)，下载 **`photocraft-codex-ai-0.3.6-windows-x64-local-node.zip`** 和对应的 `.sha256` 文件。
+2. 完整解压到可写的新目录，运行 **`start.cmd`**。
+3. 使用本机 Node.js 和 Codex CLI；如需安装 CLI，运行 `npm.cmd install -g @openai/codex`。首次启动按提示登录自己的账号；也可用 `login.cmd` 重新登录。
+4. 打开图片、创建选区，即可使用 AI 工具栏。长图切割与复制图片位于顶部标题栏。
 
-1. 在 [v0.3.1 发布页](https://github.com/kaliwell/photocraft-codex-ai/releases/tag/v0.3.1) 下载 **`photocraft-codex-ai-0.3.1-windows-x64-local-node.zip`**。
-2. 完整解压到可写目录。压缩包已包含配套 PhotoCraft、Python 3.13.5 和 Pillow 11.3.0；**不包含 Node.js 或 Codex CLI**。
-3. 使用电脑现有的 Node.js 和通过 npm 安装的 Codex CLI。尚未安装 Codex 时，执行 `npm.cmd install -g @openai/codex`。
-4. 双击 **`start.cmd`**。已有 Codex 登录可直接使用；尚未登录时按提示登录自己的账号。
-5. 在新打开的配套编辑器中打开图片，用框选或套索建立选区，在选区工具栏中输入描述并选择操作。
+包内包含 PhotoCraft 0.19.0、Python 3.13.5、Pillow 11.3.0 和源码补丁；**不包含 Node.js、Codex CLI 或账号凭据**。AI 需要网络及支持相应生图能力的账号。
 
-需要网络，以及实际支持内置生图的 Codex 安装与账号。GitHub 自动生成的 **Source code** 压缩包不含配套编辑器二进制。当前 Windows x64 发布包为试用开发构建；原生编辑器基于 PhotoCraft 0.19.0，插件版本为 0.3.0。
-
-### 使用方式
-
-| 操作 | 行为 |
-| --- | --- |
-| 局部修改 | 根据输入的描述修改选区，默认羽化 12 px |
-| 移除物体 | 移除选区中的物体并自然补全，无需输入描述，默认羽化 12 px |
-| 生成图片 | 根据描述在选区内生成画面，默认羽化 0 px |
-
-结果以新图层导入，原图保留，可按 **Ctrl+Z** 撤销。无选区时工具栏隐藏；整张文生图可先选中整张画布。工具栏跟随选区、缩放、平移和旋转，靠近底部时移到选区上方。生成期间可取消；错误显示在工具栏内。
-
-**v0.2.9：可编辑蒙版羽化。** 右键 AI 结果图层 → **边缘羽化**，选择原选区、居中圆形或正方形，拖动 **0–1000 px** 滑条或输入数值。形状中心依据图层的原始像素覆盖范围计算，透明结果按实际像素范围计算。新结果使用独立蒙版，无需重新生图即可调整，支持撤销/重做，保存 `.pcraft` 后保留。旧版本已烘焙到像素中的软边无法反向还原。
-
-[右键操作示意](examples/editable-mask-menu.png) · [可编辑蒙版示例](examples/editable-mask-demo.pcraft) · [分层演示](examples/codex-ai-native-demo.pcraft)
-
-### 代理与本地文件
-
-如需显式指定 HTTP/混合代理，在安装目录创建 `runtime/codex-proxy.json`：
+需要 HTTP/混合代理时，在解压目录创建 `runtime/codex-proxy.json`，将端口改为自己的配置：
 
 ```json
-{"url":"http://127.0.0.1:10808"}
+{"url":"http://127.0.0.1:7888"}
 ```
 
-`10808` 为示例端口，请改为自己的代理端口，并保持代理软件运行。配置只传给插件启动的 Codex 子进程，不修改系统或全局 Codex 设置；本地编辑器通信绕过代理。删除该文件可恢复继承原有网络设置。
+更新前保存文档并关闭旧版，再解压本仓库的新整合包；可复制自己的代理配置、偏好设置和切图方案。请通过本仓库整合包更新定制工具。
 
-- 通过 `start.cmd` 启动，以便同时启动编辑器和后台；不要只打开 `native/photocraft.exe`。
-- 原生版配置在 `runtime/native-profile/`，任务图片、提示词、结果和日志在 `runtime/native-jobs/`。
-- 已安装的其他 PhotoCraft 副本保持独立。更新插件前先保存文档、关闭旧版，再完整解压新版；插件配套编辑器应随插件更新，避免被上游原版覆盖。
+### 说明与验证
 
-### 数据与限制
+[多图参考](docs/reference-images.md) · [长图切割与尺寸适配](docs/long-image-cutter.md) · [发布说明](RELEASE_NOTES.md) · [验证记录](VALIDATION.md)
 
-- 局部编辑会向 Codex 生图服务提交**整张合成原图及带选区标记的参考图**；选区限制本地导入范围，不限制上传范围。
-- 插件通过 Codex CLI 使用已有登录，不自行读取登录凭据，不自动切换到付费 API。取消会终止本次子进程，服务端已开始的任务可能仍消耗额度。
-- 本地后台只接收经令牌认证的 localhost 请求，并拒绝浏览器 Origin 请求。Codex 使用 `workspace-write` 沙箱，启用 `image_generation`，禁用多代理。
-- 生成完成后，若文档已改变或关闭，会拒绝自动导入，避免错位。图片宽高比不匹配时保留结果并拒绝导入；相同比例的不同分辨率会等比例适配。
-- 导出和生成图层为 8-bit PNG；高位深和特殊色彩空间的专业保真尚未验证。
-- 不同 Codex 安装、账号、模型或沙箱可能不提供内置生图。启用功能不代表服务一定可用；失败时显示错误并保留日志。
-
-### 源码、备用面板与验证
-
-原生 Rust/egui 集成的补丁及重建说明见 [native-source/README.md](native-source/README.md)。桥接代码来自 OpenFill（Apache-2.0），第三方组件与许可证见 [THIRD_PARTY.md](THIRD_PARTY.md)。
-
-备用 Tk 面板主要用于源码环境，需要 Python 3.10+（含 Tk）、Pillow、PhotoCraft 桌面版和已登录的 Codex CLI；源码入口为 `start-panel.cmd`：
-
-```powershell
-pip install -r requirements.txt
-python -m photocraft_ai --photocraft "D:/PhotoCraft/photocraft.exe"
-```
-
-备用面板支持文生图、选区局部修改和移除物体；预览后采用结果。任务保存在 `runtime/jobs/`。Windows 原生发布包优先使用 `start.cmd`。
-
-```powershell
-python -m unittest discover -s tests -v
-python -m photocraft_ai --connect-only
-python tests/smoke_photocraft.py
-```
-
-验证记录及已知测试边界见 [VALIDATION.md](VALIDATION.md)。这些源码环境命令需要相应依赖和配套编辑器；实机测试会创建测试文档。真实生图依赖账号和服务，会消耗额度。
-
-### 版本历史
-
-| 版本 | 主要变化 |
-| --- | --- |
-| [0.3.0](https://github.com/kaliwell/photocraft-codex-ai/releases/tag/v0.3.0) | 配套编辑器升级至 PhotoCraft 0.19.0，保留全部 AI 集成功能 |
-| [0.2.9](https://github.com/kaliwell/photocraft-codex-ai/releases/tag/v0.2.9) | 可编辑图层蒙版，原选区/圆形/正方形，0–1000 px 羽化 |
-| [0.2.8](https://github.com/kaliwell/photocraft-codex-ai/releases/tag/v0.2.8) | 直接接收本次会话的完整 PNG，修复 Windows 复制命令失败导致无法导回 |
-| [0.2.7](https://github.com/kaliwell/photocraft-codex-ai/releases/tag/v0.2.7) | 改用本机 Node.js 和 npm 安装的 Codex，不再打包这两个组件 |
-| [0.2.6](https://github.com/kaliwell/photocraft-codex-ai/releases/tag/v0.2.6) | 旧版自带 Python、Pillow、PhotoCraft 和 Codex CLI 的便携包 |
-| [0.2.5](https://github.com/kaliwell/photocraft-codex-ai/releases/tag/v0.2.5) | 生成图片取消额外羽化，保留原始选区遮罩 |
-| 0.2.4–0.2.1 | 独立代理、HTTPS 错误分类与超时、局部编辑羽化、单次生成和延迟优化 |
+不固定参考图张数，Codex 的模型/工具限制以实际返回为准；本地仍有内存保护。异常模型构图或比例可能导致适配误差，原始生成文件保留。剪贴板和切图使用 RGBA8。当前为开发预览，全量历史回归并非全部通过；多图参考 QA 未额外请求真实生图。
 
 ## English
 
-v0.3.0 upgrades the matching editor to PhotoCraft 0.19.0 while retaining AI tools, direct image receipt, and editable mask feathering.
+PhotoCraft Userfull Tools extends the native PhotoCraft editor with selection-based Codex AI workflows and practical image utilities. It uses your locally installed Codex CLI and your own sign-in.
 
-v0.3.1 fixes sharp feather boundaries with an inward fade to full transparency, and displays total elapsed time after successful generation. Adjust an existing layer's feather slider to apply the new mode.
+### Features
 
-Use **Edit selection, Remove object, and Generate image** directly inside PhotoCraft, from a native toolbar next to your selection. The integration uses your locally installed Codex CLI, its built-in image generation tool, and your existing sign-in. Results are imported as new layers with undo support.
+- **Selection AI editing:** fill, remove objects, or generate artwork from the floating selection toolbar. Results become new layers with undo support.
+- **Multiple image references:** drag pictures onto the composer or choose several at once. Numbered thumbnails support individual removal and horizontal scrolling. References are sent as actual image attachments, in order, so prompts can combine “reference 1’s setting” with “reference 2’s product structure.”
+- **Long-image cutter:** a large, resizable single-source window with Maximize/Restore, editable cut lines, undo, lossless PNG ZIP export, local plan recovery, and LongPicCutter-compatible JSON import/export.
+- **Full-canvas clipboard export:** use **Copy image** in the title bar or **File → Export → Export to Clipboard**. Copies the visible composite with transparency without creating an export file.
+- **Image-size adaptation and feathering:** square generation by default, letterboxed editing references with inverse canvas mapping, selection-only application, and editable inward-feathered layer masks with shape and 0–1000 px controls.
 
-### Download and start
+### Download and run
 
-1. Download **`photocraft-codex-ai-0.3.1-windows-x64-local-node.zip`** from the [v0.3.1 release](https://github.com/kaliwell/photocraft-codex-ai/releases/tag/v0.3.1).
-2. Extract the entire archive into a writable folder. It includes the matching PhotoCraft editor, Python 3.13.5, and Pillow 11.3.0. **Node.js and Codex CLI are not bundled.**
-3. Use your existing Node.js and npm-installed Codex CLI. If Codex is missing, run `npm.cmd install -g @openai/codex`.
-4. Double-click **`start.cmd`**. Your existing Codex sign-in is reused; otherwise, follow the sign-in prompt for your own account.
-5. Open an image in the newly launched editor, make a rectangular or lasso selection, enter a description, and choose an operation from the selection toolbar.
+1. Open the [v0.3.6 release](https://github.com/kaliwell/photocraft-userfull-tools/releases/tag/v0.3.6). Download **`photocraft-codex-ai-0.3.6-windows-x64-local-node.zip`** and its `.sha256` checksum.
+2. Extract the complete archive into a new writable directory and run **`start.cmd`**.
+3. Use your existing Node.js and Codex CLI. If needed, install the CLI with `npm.cmd install -g @openai/codex`. Sign in with your own account when prompted, or run `login.cmd` to sign in again.
+4. Open an image and make a selection to display the AI composer. The cutter and clipboard buttons are in the title bar.
 
-An internet connection and a Codex installation/account with working built-in image generation are required. GitHub's automatically generated **Source code** archives do not include the editor binary. The Windows x64 package is a preview development build: plugin 0.3.1 with a modified PhotoCraft 0.19.0 editor.
+Includes PhotoCraft 0.19.0, Python 3.13.5, Pillow 11.3.0, and the native source patch. **Node.js, Codex CLI, and account credentials are not bundled.** AI features require network access and an account with the relevant image-generation capability.
 
-### Usage
+For an HTTP/mixed proxy, create `runtime/codex-proxy.json` with `{"url":"http://127.0.0.1:7888"}` and substitute your own port. Before upgrading, save documents and close the old version, then extract the new toolkit into a separate directory. Copy your own proxy configuration, preferences, and cutting plans as needed. Update customized tools through this repository’s portable releases.
 
-| Operation | Behavior |
-| --- | --- |
-| Edit selection / 局部修改 | Edit the selected area using your description; default feather: 12 px |
-| Remove object / 移除物体 | Remove the selected object and fill the background; no description required; default feather: 12 px |
-| Generate image / 生成图片 | Generate content inside the selection; default feather: 0 px |
+### Limits and validation
 
-Results are added as new layers, preserving the original. Press **Ctrl+Z** to undo. The toolbar is hidden when there is no selection; select the whole canvas for a full-image prompt. It follows the selection, zoom, pan, and rotation, moving above the selection near the bottom edge. Progress, cancellation, and errors appear in the toolbar.
+The plugin imposes no fixed reference-image count; actual Codex/model/tool errors are surfaced. Local resource guards still apply. Unexpected model framing or aspect ratios may introduce adaptation errors; original generated files are retained. Clipboard and slice exports use RGBA8.
 
-**New in v0.2.9: editable mask feathering.** Right-click an AI result layer → **边缘羽化 (Edge feathering)**. Choose the original selection, a centered circle, or a square, then adjust the **0–1000 px** slider or enter a value. The center comes from the layer's original pixel coverage; transparent results use their actual pixel bounds. New results have separate masks that can be adjusted without generating another image, support undo/redo, and persist in `.pcraft` files. Soft edges already baked into pixels by older versions cannot be reversed.
+See [reference-image instructions](docs/reference-images.md), [cutter instructions](docs/long-image-cutter.md), [release notes](RELEASE_NOTES.md), and [validation records](VALIDATION.md). Focused tests, local GUI checks, Clippy and wasm checks are documented there. Live multi-image generation was not requested during reference-image QA; the full historical regression suite is not entirely green. This remains a development preview.
 
-[Context menu example](examples/editable-mask-menu.png) · [Editable mask document](examples/editable-mask-demo.pcraft) · [Layered demo](examples/codex-ai-native-demo.pcraft)
+### Source and attribution
 
-### Proxy and local files
+- [PhotoCraft](https://github.com/storytold/photocraft), baseline `2df9f807702a935184041355a86405380bda8274` (0.19.0), MIT OR Apache-2.0.
+- [Upstream Codex AI integration](https://github.com/kaliwell/photocraft-codex-ai), v0.3.1.
+- The cutter workflow was inspired by [LongPicCutter](https://github.com/kaliwell/LongPicCutter) and independently implemented in Rust/egui; no source or assets from that project are included.
 
-To use an explicit HTTP/mixed proxy, create `runtime/codex-proxy.json` inside the installation folder:
-
-```json
-{"url":"http://127.0.0.1:10808"}
-```
-
-`10808` is an example: replace it with your own proxy port and keep your proxy running. This setting applies only to Codex child processes launched by the plugin. It does not change system settings or global Codex configuration; local editor traffic bypasses the proxy. Delete the file to resume inheriting the existing network environment.
-
-- Launch with `start.cmd` so both the editor and worker start. Do not launch only `native/photocraft.exe`.
-- Editor settings are stored in `runtime/native-profile/`. Task images, prompts, results, and logs are stored in `runtime/native-jobs/`.
-- Other PhotoCraft installations remain separate. Save your documents and close the old version before extracting an update. Update the matching editor through the plugin package to avoid replacing it with the upstream editor.
-
-### Data handling and limitations
-
-- Selection edits send **the full flattened source image and a reference image marking the selection** to Codex image generation. The selection limits local result compositing, not what is uploaded.
-- The plugin uses the existing CLI sign-in without extracting login credentials and does not automatically fall back to a paid API. Cancellation stops the child process; a server-side job already in progress may still consume quota.
-- The worker accepts token-authenticated localhost requests and rejects browser Origin requests. Codex runs with the `workspace-write` sandbox, `image_generation` enabled, and multi-agent mode disabled.
-- Automatic import is refused if the document has changed or closed. A mismatched aspect ratio also prevents import while preserving the output; a different resolution with the same aspect ratio is scaled proportionally.
-- Exported images and generated layers use 8-bit PNG. Professional fidelity for high-bit-depth documents and special color spaces has not been verified.
-- Image generation availability depends on the Codex installation, account, model, and sandbox. Enabling the feature does not guarantee service access; failures are displayed and logs are retained.
-
-### Source, fallback panel, and validation
-
-See [native-source/README.md](native-source/README.md) for the Rust/egui patch and rebuild instructions. The bridge derives from OpenFill (Apache-2.0); component and license details are in [THIRD_PARTY.md](THIRD_PARTY.md).
-
-The fallback Tk panel is mainly for source installations. It requires Python 3.10+ with Tk, Pillow, a desktop PhotoCraft installation, and a signed-in Codex CLI. Its source launcher is `start-panel.cmd`:
-
-```powershell
-pip install -r requirements.txt
-python -m photocraft_ai --photocraft "D:/PhotoCraft/photocraft.exe"
-```
-
-The panel supports text-to-image, selection editing, and object removal, with a preview before applying results. Tasks are stored in `runtime/jobs/`. For the native Windows release, use `start.cmd`.
-
-```powershell
-python -m unittest discover -s tests -v
-python -m photocraft_ai --connect-only
-python tests/smoke_photocraft.py
-```
-
-See [VALIDATION.md](VALIDATION.md) for recorded results and known testing boundaries. These source-install commands require their dependencies and the matching editor; integration tests create test documents. Live image generation requires service access and consumes quota.
-
-### Version history
-
-| Version | Main change |
-| --- | --- |
-| [0.3.0](https://github.com/kaliwell/photocraft-codex-ai/releases/tag/v0.3.0) | Upgrade the matching editor to PhotoCraft 0.19.0, retaining all AI integration features |
-| [0.2.9](https://github.com/kaliwell/photocraft-codex-ai/releases/tag/v0.2.9) | Editable layer masks; original selection/circle/square; 0–1000 px feathering |
-| [0.2.8](https://github.com/kaliwell/photocraft-codex-ai/releases/tag/v0.2.8) | Receive complete PNGs directly from the current session; fix failed Windows copy commands preventing import |
-| [0.2.7](https://github.com/kaliwell/photocraft-codex-ai/releases/tag/v0.2.7) | Use local Node.js and npm-installed Codex instead of bundling them |
-| [0.2.6](https://github.com/kaliwell/photocraft-codex-ai/releases/tag/v0.2.6) | Legacy portable bundle including Python, Pillow, PhotoCraft, and Codex CLI |
-| [0.2.5](https://github.com/kaliwell/photocraft-codex-ai/releases/tag/v0.2.5) | Remove extra feathering for image generation; preserve the original selection mask |
-| 0.2.4–0.2.1 | Per-plugin proxy, HTTPS error classification and timeout, local edit feathering, single-generation and latency improvements |
+Build instructions: [native-source/README.md](native-source/README.md). Licenses and notices: [THIRD_PARTY.md](THIRD_PARTY.md), with upstream notices included alongside the editor binary.

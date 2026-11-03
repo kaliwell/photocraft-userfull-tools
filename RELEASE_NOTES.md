@@ -1,49 +1,58 @@
-# PhotoCraft Userfull Tools 0.3.6
+# PhotoCraft Userfull Tools v0.3.6
 
-- 新增图片拖入、多选和缩略图参考栏，支持单张移除与横向滚动。拖到工具栏外仍按原方式打开图片。
-- 所选参考图按顺序作为图片附件发送；提示词中的“图1/图2”按参考图编号解释。
-- 不固定图片张数，显示 Codex 实际输入限制错误；保留本地资源保护。参考图不自动降低像素分辨率，支持 EXIF 转正。
-- Multi-image drag/drop and selection, numbered removable thumbnails and horizontal scrolling. Sends actual ordered image attachments to Codex; no fixed count cap. Maintains original pixel dimensions and existing outside-composer drop behavior. Local resource guards remain.
-
-- 切图窗口默认跟随编辑器尺寸，新增最大化/还原，操作区高度随窗口变化。
-- 按需求移除右侧切图预览，改为单栏大图。切割线、方案和 ZIP 导出功能保留。
-- Larger adaptive cutter window with Maximize/Restore and one full-width source view; removed slice preview. Cutting and export behavior are unchanged.
-
-- 修复“局部修改”和“移除物体”仍因返回图片比例不同而拒绝导入：新增 1:1 等比补边参考图和原画布坐标映射；旧任务支持尺寸归一化。
-- 原始选区、透明度、羽化和文档修订检查保留。比例异常的模型输出需要尺寸归一化，可能产生几何误差，原文件保留。
-- Fix Fill/Remove aspect-ratio import failures with square letterboxed references, inverse canvas mapping and legacy-result size normalization. Keep selection alpha and stale-document protection.
-
-- 新增原生长图切割、切割线编辑、实时预览、PNG ZIP 和 JSON 方案导入导出；本机自动保存，无图片上传。
-- 生图默认请求 1:1，结果等比放入选区，修复生成结果与整张画布比例不同被拒绝导入的问题。局部修改、移除物体继续保留原画布对齐检查。
-- Native long-image cutting, editable cut lines, live preview, PNG ZIP and interoperable JSON plans with local persistence.
-- Square generation by default; proportionally places new artwork inside the selection. Fill/remove retain canvas-alignment checks.
-
-合并原插件 v0.3.1 和 PhotoCraft 0.19.0，保留顶部“复制图片”和剪贴板导出功能。适配新版剪贴板数据结构；不替换正在运行的旧版。
-
-Based on upstream v0.3.1 / PhotoCraft 0.19.0. Retains the title-bar Copy image button and full-canvas Export to Clipboard, including transparency.
-
-# PhotoCraft Codex AI v0.3.1 · PhotoCraft 0.19.0
+Windows x64 portable development preview · PhotoCraft 0.19.0
 
 ## 中文
 
-- 修复局部修改羽化边缘仍有硬截断的问题：向选区内部平滑渐隐，最外沿完全透明。支持原选区、居中圆形和正方形蒙版，保留 0–1000 px 滑条、撤销/重做和 `.pcraft` 保存。已有图层重新调整羽化滑条即可应用。
-- 生成成功后显示本次总耗时，包含读取选区、生图和导入新图层。
-- 改进 Windows 运行中更新的二进制暂存与安装包构建，保证包内使用最新编辑器。
+本次发布整合多图参考及此前工具版的长图切割、剪贴板导出和尺寸适配功能。
 
-下载 `photocraft-codex-ai-0.3.1-windows-x64-local-node.zip`，完整解压后运行 `start.cmd`。更新前保存文档并关闭旧版，建议解压到新文件夹；需要代理时复制自己的 `runtime/codex-proxy.json`。
+- **多图参考**：拖入或多选图片，显示编号缩略图，支持单张移除和横向滚动。参考图按顺序作为真实附件发送给 Codex，“图1/图2”按参考图编号解释。
+- 不固定图片张数，显示 Codex 实际输入错误；保留本地资源保护。参考图保留像素尺寸，支持 EXIF 转正。
+- **长图切割**：单栏大图、最大化/还原、切割线编辑和撤销、PNG ZIP、自动恢复及 LongPicCutter JSON 互通。
+- **复制图片**：顶部按钮或文件导出菜单复制完整可见画布，保留透明度，无需导出到文件夹。
+- **尺寸适配**：默认 1:1 生图；局部编辑使用方形补边参考图和反向映射，按原选区导入，保留可编辑向内羽化。
 
-包内包含 PhotoCraft 0.19.0、Python 3.13.5 和 Pillow 11.3.0；沿用电脑已有 Node.js、npm 安装的 Codex CLI 和自己的登录，不额外打包 Node.js/Codex，也不包含账号凭据。
+### 下载与启动
 
-专项、实机、静态、wasm 和异常输入检查通过。全套回归并非全部通过：开发配置下现有深嵌套小栈问题、Windows 基准构建执行权限和外部测试素材下载限制详见 `VALIDATION.md`。仍为预览开发构建，需要网络和支持内置生图的 Codex 账号。
+下载 **`photocraft-codex-ai-0.3.6-windows-x64-local-node.zip`**，完整解压到新目录，运行 **`start.cmd`**。使用同名 `.zip.sha256` 文件核对下载。
+
+包含 PhotoCraft 0.19.0、Python 3.13.5 和 Pillow 11.3.0；沿用本机 Node.js、Codex CLI 和自己的登录，不含账号凭据。AI 需要网络及相应生图能力。更新前保存文档并关闭旧版；需要代理时复制自己的 `runtime/codex-proxy.json`。
+
+### 验证与限制
+
+52 项 Python 测试、8 项原生 AI 工具栏测试，以及 UI Clippy、wasm 和源码补丁反向校验通过。5 张测试图验证显示、移除及请求附件字节与顺序；真实多选窗口支持添加到 6 张。测试未额外请求真实 AI 生图。拖放路由通过原生 dropped-file handle 测试；自动化环境中的 OS 级拖动模拟未完成。
+
+仍为开发预览，全量历史回归并非全绿。异常模型构图/比例可能导致适配误差；原始生成文件保留。完整记录见 `VALIDATION.md`。
 
 ## English
 
-- Fixes sharp feather boundaries on clipped AI results: masks now fade inward to full transparency at the outer edge. Original selection, centered circle and square masks retain their 0–1000 px controls, undo/redo and `.pcraft` persistence. Adjust an existing layer's feather slider to apply the new mode.
-- Shows total elapsed time after successful generation, including selection export, generation and import.
-- Updates Windows executable staging and packaging so the current editor build is included.
+This release combines multi-image references with the toolkit’s long-image cutter, clipboard export, and image-size adaptation.
 
-Download `photocraft-codex-ai-0.3.1-windows-x64-local-node.zip`, extract completely, and run `start.cmd`. Save documents and close the old version first. Extract into a new folder and copy your own `runtime/codex-proxy.json` if needed.
+- **Multiple image references:** drag pictures onto the AI composer or select several. Numbered thumbnails support removal and horizontal scrolling. Actual image attachments are sent to Codex in order; numbered pictures in prompts refer to user references.
+- No fixed image-count cap. Actual Codex input errors are surfaced, with local resource guards. References retain their pixel dimensions and are corrected for EXIF orientation.
+- **Long-image cutter:** large single-source window, Maximize/Restore, editable cut lines, undo, PNG ZIP export, local plan recovery, and LongPicCutter JSON interchange.
+- **Copy image:** title-bar and File/Export commands copy the full visible canvas with transparency, without an export file.
+- **Size adaptation:** square generation by default; Fill/Remove use letterboxed references and inverse canvas mapping for selection-only import. Editable inward feathering remains available.
 
-Includes PhotoCraft 0.19.0, Python 3.13.5 and Pillow 11.3.0. Uses local Node.js, npm-installed Codex CLI and your own sign-in; no Node.js, Codex CLI or account credentials are bundled.
+### Download and run
 
-Focused, live-editor, static, wasm and adversarial-input checks passed. Full regression is not entirely green; existing small-stack failures in the development configuration and environment limits are documented in `VALIDATION.md`. This remains a preview development build requiring internet access and a Codex account with working built-in image generation.
+Download **`photocraft-codex-ai-0.3.6-windows-x64-local-node.zip`**, extract it completely into a new directory, and run **`start.cmd`**. Verify the archive with the accompanying `.zip.sha256` file.
+
+Includes PhotoCraft 0.19.0, Python 3.13.5, and Pillow 11.3.0. Uses your local Node.js, Codex CLI, and sign-in; no account credentials are bundled. AI features require network access and the relevant image-generation capability. Save documents and close the old version before upgrading. Copy your own `runtime/codex-proxy.json` if required.
+
+### Validation and limitations
+
+52 Python tests, eight native AI-toolbar tests, UI Clippy, wasm, and reverse-patch checks passed. Five pictures verified gallery/removal and exact outgoing attachment bytes/order. The native multi-select dialog added pictures to a six-image batch. No extra live AI generation was requested. Native dropped-file handles exercised drag routing; OS-level drag simulation did not complete in the automation environment.
+
+This remains a development preview; the historical full regression suite is not entirely green. Unexpected model framing/aspect ratios may introduce adaptation errors. Original generated files are retained. See `VALIDATION.md` for details.
+
+## Earlier toolkit changes / 此前工具版改动
+
+| Version | Changes / 改动 |
+| --- | --- |
+| 0.3.5 | Larger single-source cutter; removed preview / 放大单栏切图窗口，移除预览 |
+| 0.3.4 | Square edit references and canvas mapping / 方形编辑参考图及画布映射 |
+| 0.3.3 | Native cutter and square generation / 原生切图与默认方图生成 |
+| 0.3.2 | Upstream v0.3.1 integration on PhotoCraft 0.19.0 / 合并上游 v0.3.1 |
+| 0.2.11 | Title-bar Copy image / 顶部复制图片按钮 |
+| 0.2.10 | Full-canvas clipboard export / 完整画布剪贴板导出 |
