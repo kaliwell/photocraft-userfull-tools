@@ -1,4 +1,8 @@
-# PhotoCraft Userfull Tools 0.3.3
+# PhotoCraft Userfull Tools 0.3.4
+
+- 修复“局部修改”和“移除物体”仍因返回图片比例不同而拒绝导入：新增 1:1 等比补边参考图和原画布坐标映射；旧任务支持尺寸归一化。
+- 原始选区、透明度、羽化和文档修订检查保留。比例异常的模型输出需要尺寸归一化，可能产生几何误差，原文件保留。
+- Fix Fill/Remove aspect-ratio import failures with square letterboxed references, inverse canvas mapping and legacy-result size normalization. Keep selection alpha and stale-document protection.
 
 - 新增原生长图切割、切割线编辑、实时预览、PNG ZIP 和 JSON 方案导入导出；本机自动保存，无图片上传。
 - 生图默认请求 1:1，结果等比放入选区，修复生成结果与整张画布比例不同被拒绝导入的问题。局部修改、移除物体继续保留原画布对齐检查。

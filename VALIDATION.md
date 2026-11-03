@@ -1,3 +1,9 @@
+# Userfull Tools 0.3.4 validation (2026-11-03)
+
+43 Python tests passed. New cases cover 1920x1080 -> 1024x1024 letterboxing, synchronized selection coordinates, inverse mapping of a 1717x916 model result with original selection alpha, legacy retained-job normalization, and preservation of the original canvas-sized selection file. Existing stale-document tests continue to pass. No new live generation was requested. The native editor binary and long-image cutter are unchanged from the validated 0.3.3 build; native checks were not repeated for this Python-only fix.
+
+---
+
 # Userfull Tools 0.3.3 validation (2026-11-03)
 
 - 40 Python tests pass, including square generation on widescreen documents, proportional placement of a mismatched model result, alpha preservation and guarded single-layer application.
