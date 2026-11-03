@@ -1,3 +1,9 @@
+# Userfull Tools 0.3.7 language validation (2026-11-03)
+
+54 Python tests passed, including canonical worker progress/success and error messages. Dedicated native tests verified live English/Chinese conversion of existing dynamic messages and preservation of dynamic template fields. Native screenshots verified language switching in one running editor via interface.language, both the AI composer and cutter; no extra generation was requested. The AI composer is hidden while the cutter is open. Native Clippy (-D warnings), wasm UI check and reverse patch checks passed. User prompts and reference names remain user data. Historical full-suite limitations remain documented below.
+
+---
+
 # Userfull Tools 0.3.6 validation (2026-11-03)
 
 - 52 Python tests passed: ordered multi-reference saving, no fixed five-image cap (seven references verified), EXIF orientation with original resolution, invalid-image and memory guards, scoped worker payloads, exact CLI --image arguments, and surfacing Codex input-limit messages.

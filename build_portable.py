@@ -6,7 +6,7 @@ import shutil
 import zipfile
 
 ROOT = Path(__file__).resolve().parent
-VERSION = '0.3.6'
+VERSION = '0.3.7'
 output = ROOT / f'dist/photocraft-codex-ai-{VERSION}-windows-x64-local-node'
 output.mkdir(parents=True, exist_ok=False)
 python = output / 'python'

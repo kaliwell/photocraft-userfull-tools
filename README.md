@@ -4,11 +4,13 @@
 
 **PhotoCraft 原生增强工具：Codex AI、多图参考、长图切割和剪贴板导出。**
 
-[中文](#中文说明) · [English](#english) · [Download v0.3.6 / 下载](https://github.com/kaliwell/photocraft-userfull-tools/releases/tag/v0.3.6)
+[中文](#中文说明) · [English](#english) · [Download v0.3.7 / 下载](https://github.com/kaliwell/photocraft-userfull-tools/releases/tag/v0.3.7)
 
-Based on PhotoCraft **0.19.0** and the upstream Codex AI integration **v0.3.1**. Current toolkit: **v0.3.6**, Windows x64 portable development build.
+Based on PhotoCraft **0.19.0** and the upstream Codex AI integration **v0.3.1**. Current toolkit: **v0.3.7**, Windows x64 portable development build.
 
 ## 中文说明
+
+**语言切换（0.3.7）**：编辑 → 首选项 → 界面 → 语言，选择 English 或中文并应用。AI 工具栏、参考图、切图窗口及常用任务提示随编辑器设置切换，无需单独重启插件。用户提示词和文件名保留原文。
 
 ### 功能
 
@@ -20,7 +22,7 @@ Based on PhotoCraft **0.19.0** and the upstream Codex AI integration **v0.3.1**.
 
 ### 下载与安装
 
-1. 打开 [v0.3.6 发布页](https://github.com/kaliwell/photocraft-userfull-tools/releases/tag/v0.3.6)，下载 **`photocraft-codex-ai-0.3.6-windows-x64-local-node.zip`** 和对应的 `.sha256` 文件。
+1. 打开 [v0.3.7 发布页](https://github.com/kaliwell/photocraft-userfull-tools/releases/tag/v0.3.7)，下载 **`photocraft-codex-ai-0.3.7-windows-x64-local-node.zip`** 和对应的 `.sha256` 文件。
 2. 完整解压到可写的新目录，运行 **`start.cmd`**。
 3. 使用本机 Node.js 和 Codex CLI；如需安装 CLI，运行 `npm.cmd install -g @openai/codex`。首次启动按提示登录自己的账号；也可用 `login.cmd` 重新登录。
 4. 打开图片、创建选区，即可使用 AI 工具栏。长图切割与复制图片位于顶部标题栏。
@@ -43,6 +45,8 @@ Based on PhotoCraft **0.19.0** and the upstream Codex AI integration **v0.3.1**.
 
 ## English
 
+**Language switching (0.3.7):** choose **Edit → Preferences → Interface → Language**, then apply your selection. The AI composer, reference-image controls, cutter and standard job messages follow the editor language without a separate plugin restart. User prompts and filenames are preserved. Untranslated languages fall back to English; third-party messages retain their original wording.
+
 PhotoCraft Userfull Tools extends the native PhotoCraft editor with selection-based Codex AI workflows and practical image utilities. It uses your locally installed Codex CLI and your own sign-in.
 
 ### Features
@@ -55,7 +59,7 @@ PhotoCraft Userfull Tools extends the native PhotoCraft editor with selection-ba
 
 ### Download and run
 
-1. Open the [v0.3.6 release](https://github.com/kaliwell/photocraft-userfull-tools/releases/tag/v0.3.6). Download **`photocraft-codex-ai-0.3.6-windows-x64-local-node.zip`** and its `.sha256` checksum.
+1. Open the [v0.3.7 release](https://github.com/kaliwell/photocraft-userfull-tools/releases/tag/v0.3.7). Download **`photocraft-codex-ai-0.3.7-windows-x64-local-node.zip`** and its `.sha256` checksum.
 2. Extract the complete archive into a new writable directory and run **`start.cmd`**.
 3. Use your existing Node.js and Codex CLI. If needed, install the CLI with `npm.cmd install -g @openai/codex`. Sign in with your own account when prompted, or run `login.cmd` to sign in again.
 4. Open an image and make a selection to display the AI composer. The cutter and clipboard buttons are in the title bar.

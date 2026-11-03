@@ -162,7 +162,7 @@ class Service:
                 Image.alpha_composite(square,overlay).save(guide)
                 (job/'edit-transform.json').write_text(json.dumps({'content_box':box,'canvas_size':dims}),encoding='utf-8')
         if mode == 'remove':
-            prompt = '移除标记区域中的物体，根据周围环境自然补全，保持光照、纹理和透视一致。'
+            prompt = 'Remove the marked object and fill the area naturally, preserving surrounding light, texture and perspective.'
         meta = {'mode': mode, 'prompt': prompt, 'size': dims,
                 'document': target.name if target else None, 'revision': revision,
                 'feather_px': feather_px if mode != 'create' else 0,

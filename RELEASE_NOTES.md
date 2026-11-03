@@ -1,3 +1,30 @@
+# PhotoCraft Userfull Tools v0.3.7
+
+## 中文
+
+- 插件接入编辑器语言设置，支持英文及中文界面；其他语言缺项使用英文。
+- AI 提示词工具栏、参考图、长图切割及常用进度/错误提示随语言切换。
+- 动态数量、等待时间和成功提示可随当前界面重新翻译，保留原有提示词、文件名和任务参数。
+- 切图窗口打开时隐藏浮动 AI 工具栏，避免界面覆盖。
+- 在“编辑 → 首选项 → 界面 → 语言”切换并应用。下载整合包，解压运行 `start.cmd`；更新前保存并关闭旧版。
+
+## English
+
+- Custom tools follow the editor language, with English/Chinese catalogs and English fallback for untranslated languages.
+- Localizes the AI composer, reference-image controls, long-image cutter and standard progress/error messages.
+- Dynamic image counts, waiting times and success messages update with the current UI language. User prompts, filenames and task parameters are preserved.
+- Hides the floating AI composer while the cutter is open.
+- Choose **Edit → Preferences → Interface → Language** and apply. Extract the portable package and run `start.cmd`; save and close the previous version before upgrading.
+
+## Validation / 验证
+
+54 Python tests and two dedicated message-translation tests passed. Native screenshots verified English/Chinese switching in the same running editor. UI Clippy, wasm and reverse-patch checks are recorded in `VALIDATION.md`. No new live AI generation was requested; historical full-suite limitations remain applicable.
+
+Development preview; includes PhotoCraft 0.19.0, Python and Pillow, using local Node.js/Codex CLI and your own sign-in. Download `photocraft-codex-ai-0.3.7-windows-x64-local-node.zip` and its `.zip.sha256` file.
+
+
+---
+
 # PhotoCraft Userfull Tools v0.3.6
 
 Windows x64 portable development preview · PhotoCraft 0.19.0

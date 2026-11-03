@@ -1083,12 +1083,14 @@ index 12b4a8a..55fd380 100644
  
 diff --git a/crates/ui-egui/src/codex_ai.rs b/crates/ui-egui/src/codex_ai.rs
 new file mode 100644
-index 0000000..a5d92c6
+index 0000000..f675f50
 --- /dev/null
 +++ b/crates/ui-egui/src/codex_ai.rs
-@@ -0,0 +1,649 @@
+@@ -0,0 +1,656 @@
 +//! Optional native selection toolbar. Document edits stay in the existing engine commands;
 +//! an authenticated loopback worker runs Codex without blocking egui's frame loop.
++use crate::plugin_i18n::text as l;
++macro_rules! pt { ($($arg:tt)*) => { crate::plugin_i18n::text(&format!($($arg)*)) }; }
 +use egui::{Context, Rect, Vec2, pos2, vec2};
 +use serde_json::{Value, json};
 +use std::sync::{Arc, Mutex};
@@ -1178,7 +1180,7 @@ index 0000000..a5d92c6
 +        state.input = None;
 +        state.buttons.clear();
 +    }
-+    if !app.ui.dialogs.is_empty() || app.ui.shell.dialog.is_some() {
++    if !app.ui.dialogs.is_empty() || app.ui.shell.dialog.is_some() || app.long_cut.is_some() {
 +        return;
 +    }
 +    let Some(selection) = selection_rect(app, ctx, xf) else { return };
@@ -1200,10 +1202,13 @@ index 0000000..a5d92c6
 +                ui.set_width(width - 20.0);
 +                let input = ui.add_enabled(
 +                    !snapshot.busy && !snapshot.loading,
-+                    egui::TextEdit::singleline(&mut app.ui.codex_ai_prompt).hint_text("描述要修改或生成的内容…").char_limit(4000).desired_width(f32::INFINITY),
++                    egui::TextEdit::singleline(&mut app.ui.codex_ai_prompt)
++                        .hint_text(l("Describe what to edit or generate…"))
++                        .char_limit(4000)
++                        .desired_width(f32::INFINITY),
 +                );
 +                input_rect = Some(input.rect);
-+                ui.label("拖入图片作为参考 · 支持多张，数量由 Codex 校验");
++                ui.label(l("Drop reference images here · Multiple images supported; limits checked by Codex"));
 +                button_rects = actions(app, ui, &snapshot);
 +                if !snapshot.references.is_empty() {
 +                    let mut remove = None;
@@ -1213,9 +1218,9 @@ index 0000000..a5d92c6
 +                                ui.vertical(|ui| {
 +                                    ui.add(egui::Image::new(&reference.texture).max_size(vec2(52.0, 52.0))).on_hover_text(&reference.name);
 +                                    let response = ui
-+                                        .add_enabled(!snapshot.busy && !snapshot.loading, egui::Button::new(format!("{} ×", index + 1)))
-+                                        .on_hover_text("移除此参考图");
-+                                    button_rects.push((format!("移除参考图{}", index + 1), response.rect));
++                                        .add_enabled(!snapshot.busy && !snapshot.loading, egui::Button::new(pt!("{} ×", index + 1)))
++                                        .on_hover_text(l("Remove this reference image"));
++                                    button_rects.push((pt!("移除参考图{}", index + 1), response.rect));
 +                                    if response.clicked() {
 +                                        remove = Some(index);
 +                                    }
@@ -1226,21 +1231,21 @@ index 0000000..a5d92c6
 +                    if let Some(index) = remove {
 +                        let mut state = status.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
 +                        state.references.remove(index);
-+                        state.message = format!("已选择 {} 张参考图", state.references.len());
++                        state.message = pt!("Reference images selected: {}", state.references.len());
 +                        state.error = false;
 +                    }
 +                }
 +                if snapshot.loading {
-+                    ui.label("正在读取参考图…");
++                    ui.label(l("Loading reference images…"));
 +                }
 +                if snapshot.busy {
 +                    ui.horizontal(|ui| {
 +                        ui.spinner();
-+                        widgets::elided_label(ui, &snapshot.message, width - 65.0);
++                        widgets::elided_label(ui, &l(&snapshot.message), width - 65.0);
 +                    });
 +                } else if !snapshot.message.is_empty() {
-+                    let text = egui::RichText::new(&snapshot.message).color(if snapshot.error { tokens.danger } else { tokens.text_dim });
-+                    ui.add(egui::Label::new(text).truncate()).on_hover_text(&snapshot.message);
++                    let text = egui::RichText::new(l(&snapshot.message)).color(if snapshot.error { tokens.danger } else { tokens.text_dim });
++                    ui.add(egui::Label::new(text).truncate()).on_hover_text(l(&snapshot.message));
 +                }
 +            },
 +        );
@@ -1256,16 +1261,18 @@ index 0000000..a5d92c6
 +    ui.horizontal(|ui| {
 +        ui.add_enabled_ui(!status.busy && !status.loading, |ui| {
 +            let has_prompt = !app.ui.codex_ai_prompt.trim().is_empty();
-+            for (label, mode, enabled) in [("局部修改", "fill", has_prompt), ("移除物体", "remove", true), ("生成图片", "generate", has_prompt)] {
-+                let response = ui.add_enabled_ui(enabled, |ui| widgets::secondary_button(ui, label, 76.0)).inner;
-+                buttons.push((label.into(), response.rect));
++            for (label, mode, enabled) in
++                [("Fill selection", "fill", has_prompt), ("Remove object", "remove", true), ("Generate image", "generate", has_prompt)]
++            {
++                let response = ui.add_enabled_ui(enabled, |ui| widgets::secondary_button(ui, &l(label), 76.0)).inner;
++                buttons.push((l(label), response.rect));
 +                if response.clicked() {
 +                    submit(app, ui.ctx(), mode);
 +                }
 +            }
 +            let add = ui
-+                .add_enabled(!app.file_dialog_open(), egui::Button::new(format!("参考图 {} ＋", status.references.len())))
-+                .on_hover_text("一次选择多张图片；在提示词中用参考图1、参考图2指定用途");
++                .add_enabled(!app.file_dialog_open(), egui::Button::new(pt!("Reference images {} +", status.references.len())))
++                .on_hover_text(l("Select multiple images; refer to reference 1, reference 2, etc. in your prompt"));
 +            buttons.push(("添加参考图".into(), add.rect));
 +            if add.clicked() {
 +                let ctx = ui.ctx().clone();
@@ -1277,7 +1284,7 @@ index 0000000..a5d92c6
 +                }
 +            }
 +        });
-+        if status.busy && widgets::secondary_button(ui, "取消", 44.0).clicked() {
++        if status.busy && widgets::secondary_button(ui, &l("Cancel"), 44.0).clicked() {
 +            cancel(ui.ctx());
 +        }
 +    });
@@ -1372,7 +1379,7 @@ index 0000000..a5d92c6
 +    {
 +        let mut state = state.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
 +        if state.busy || state.loading {
-+            return Err("请等待当前任务完成".into());
++            return Err(l("Please wait for the current task to finish"));
 +        }
 +        state.loading = true;
 +    }
@@ -1389,7 +1396,7 @@ index 0000000..a5d92c6
 +                Ok(files) => {
 +                    state.references.extend(files);
 +                    state.error = false;
-+                    state.message = format!("已选择 {} 张参考图", state.references.len());
++                    state.message = pt!("Reference images selected: {}", state.references.len());
 +                }
 +                Err(e) => {
 +                    state.error = true;
@@ -1451,7 +1458,7 @@ index 0000000..a5d92c6
 +        };
 +        total += bytes.len();
 +        if bytes.len() > MAX_REFERENCE_BYTES || total > MAX_REFERENCE_TOTAL {
-+            return Err("超过本地传输内存保护阈值，请分批提交".into());
++            return Err(l("Local transfer memory limit exceeded; submit images in smaller batches"));
 +        }
 +        result.push((path.to_string_lossy().into_owned(), bytes));
 +    }
@@ -1483,19 +1490,19 @@ index 0000000..a5d92c6
 +        }
 +        FileDialogAnswer::Contents(name, bytes) => vec![(name, bytes)],
 +        FileDialogAnswer::ContentsMany(files) => files,
-+        _ => return Err("图片选择结果无效".into()),
++        _ => return Err(l("Invalid image selection")),
 +    };
 +    let mut references = Vec::new();
 +    for (name, bytes) in files {
 +        total += bytes.len();
 +        if bytes.is_empty() || bytes.len() > MAX_REFERENCE_BYTES || total > MAX_REFERENCE_TOTAL {
-+            return Err("超过本地传输内存保护阈值，请分批提交".into());
++            return Err(l("Local transfer memory limit exceeded; submit images in smaller batches"));
 +        }
 +        let options = photocraft_codecs::DecodeOptions {
 +            limits: photocraft_codecs::Limits { max_width: u32::MAX, max_height: u32::MAX, max_pixels: 100_000_000, max_alloc: 1024 * 1024 * 1024 },
 +            ..Default::default()
 +        };
-+        let image = photocraft_codecs::decode_with(&bytes, &options).map_err(|e| format!("参考图无法读取：{e}"))?;
++        let image = photocraft_codecs::decode_with(&bytes, &options).map_err(|e| pt!("Cannot read reference image: {e}"))?;
 +        let rgba = image.to_rgba8();
 +        let scale = (80.0 / image.width() as f64).min(80.0 / image.height() as f64).min(1.0);
 +        let w = (image.width() as f64 * scale).round().max(1.0) as usize;
@@ -1538,7 +1545,7 @@ index 0000000..a5d92c6
 +        }
 +        status.busy = true;
 +        status.error = false;
-+        status.message = "正在读取选区…".into();
++        status.message = l("Reading selection…");
 +    }
 +    let ctx = ctx.clone();
 +    std::thread::spawn(move || {
@@ -1567,21 +1574,21 @@ index 0000000..a5d92c6
 +
 +#[cfg(not(target_arch = "wasm32"))]
 +mod native {
-+    use super::{Context, Shared, Value, json};
++    use super::{Context, Shared, Value, json, l};
 +    use std::io::{Read, Write};
 +    use std::net::{Ipv4Addr, SocketAddr, TcpStream};
 +    use std::time::{Duration, Instant};
 +
 +    pub(super) fn request(method: &str, path: &str, body: &Value) -> Result<Value, String> {
-+        let port: u16 = std::env::var("PHOTOCRAFT_CODEX_PORT").ok().and_then(|s| s.parse().ok()).ok_or("未配置本地 Codex 服务")?;
-+        let token_file = std::env::var_os("PHOTOCRAFT_CODEX_TOKEN_FILE").ok_or("未配置本地认证文件")?;
-+        let token = std::fs::read_to_string(token_file).map_err(|_| "无法读取本地认证文件")?;
++        let port: u16 = std::env::var("PHOTOCRAFT_CODEX_PORT").ok().and_then(|s| s.parse().ok()).ok_or(l("Local Codex service is not configured"))?;
++        let token_file = std::env::var_os("PHOTOCRAFT_CODEX_TOKEN_FILE").ok_or(l("Local authentication file is not configured"))?;
++        let token = std::fs::read_to_string(token_file).map_err(|_| l("Cannot read local authentication file"))?;
 +        let token = token.trim();
 +        if token.len() != 64 || !token.bytes().all(|b| b.is_ascii_hexdigit()) {
-+            return Err("本地认证文件无效".into());
++            return Err(l("Invalid local authentication file"));
 +        }
 +        let address = SocketAddr::from((Ipv4Addr::LOCALHOST, port));
-+        let mut stream = TcpStream::connect_timeout(&address, Duration::from_secs(3)).map_err(|e| format!("无法连接 Codex 服务：{e}"))?;
++        let mut stream = TcpStream::connect_timeout(&address, Duration::from_secs(3)).map_err(|e| format!("Cannot connect to Codex service: {e}"))?;
 +        stream.set_read_timeout(Some(Duration::from_secs(5))).map_err(|e| e.to_string())?;
 +        stream.set_write_timeout(Some(Duration::from_secs(5))).map_err(|e| e.to_string())?;
 +        let body = body.to_string();
@@ -1592,10 +1599,10 @@ index 0000000..a5d92c6
 +        stream.write_all(wire.as_bytes()).map_err(|e| e.to_string())?;
 +        let mut response = String::new();
 +        stream.take(65536).read_to_string(&mut response).map_err(|e| e.to_string())?;
-+        let (_, body) = response.split_once("\r\n\r\n").ok_or("Codex 服务返回了无效响应")?;
++        let (_, body) = response.split_once("\r\n\r\n").ok_or(l("Invalid response from Codex service"))?;
 +        let value: Value = serde_json::from_str(body).map_err(|e| e.to_string())?;
 +        if value.get("error").and_then(Value::as_bool) == Some(true) && value.get("busy").is_none() {
-+            return Err(value.get("message").and_then(Value::as_str).unwrap_or("Codex 请求失败").into());
++            return Err(value.get("message").and_then(Value::as_str).unwrap_or("Codex request failed").into());
 +        }
 +        Ok(value)
 +    }
@@ -1609,7 +1616,7 @@ index 0000000..a5d92c6
 +            {
 +                let mut status = state.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
 +                status.busy = busy;
-+                status.message = response.get("message").and_then(Value::as_str).unwrap_or("处理中…").chars().take(1000).collect();
++                status.message = response.get("message").and_then(Value::as_str).unwrap_or("Processing…").chars().take(1000).collect();
 +                status.error = response.get("error").and_then(Value::as_bool).unwrap_or(false);
 +            }
 +            ctx.request_repaint();
@@ -1617,7 +1624,7 @@ index 0000000..a5d92c6
 +                return Ok(());
 +            }
 +            if started.elapsed() > Duration::from_secs(1200) {
-+                return Err("等待生成超时，请检查本地任务日志".into());
++                return Err(l("Generation timed out; check the local job logs"));
 +            }
 +            std::thread::sleep(Duration::from_millis(500));
 +        }
@@ -1637,12 +1644,12 @@ index 0000000..a5d92c6
 +        assert_eq!(files.iter().map(|r| r.name.as_str()).collect::<Vec<_>>(), vec!["first.png", "second.png"]);
 +        assert_eq!(base64::engine::general_purpose::STANDARD.decode(files[0].data.as_str()).unwrap(), png);
 +        assert!(files[0].texture.size()[0] <= 80);
-+        let many = crate::FileDialogAnswer::ContentsMany((0..7).map(|i| (format!("{i}.png"), png.clone())).collect());
++        let many = crate::FileDialogAnswer::ContentsMany((0..7).map(|i| (pt!("{i}.png"), png.clone())).collect());
 +        assert_eq!(super::read_references(many, &Context::default(), 0, 0).unwrap().len(), 7);
 +    }
 +    #[test]
 +    fn reference_picker_rejects_invalid_images() {
-+        let selected = crate::FileDialogAnswer::ContentsMany((0..6).map(|i| (format!("{i}.png"), vec![1])).collect());
++        let selected = crate::FileDialogAnswer::ContentsMany((0..6).map(|i| (pt!("{i}.png"), vec![1])).collect());
 +        assert!(super::read_references(selected, &Context::default(), 0, 0).is_err());
 +        let selected = crate::FileDialogAnswer::Contents("bad.png".into(), vec![1, 2, 3]);
 +        assert!(super::read_references(selected, &Context::default(), 0, 0).is_err());
@@ -1672,7 +1679,7 @@ index 0000000..a5d92c6
 +        let image = photocraft_codecs::Image::from_u8(8, 6, photocraft_codecs::ChannelLayout::Rgba, vec![128; 8 * 6 * 4]).unwrap();
 +        let png = photocraft_codecs::encode(&image, photocraft_codecs::Format::Png, &Default::default()).unwrap();
 +        let files: Vec<egui::DroppedFileHandle> =
-+            (0..2).map(|i| std::sync::Arc::new(Drop(format!("virtual-{i}.png").into(), png.clone())) as egui::DroppedFileHandle).collect();
++            (0..2).map(|i| std::sync::Arc::new(Drop(pt!("virtual-{i}.png").into(), png.clone())) as egui::DroppedFileHandle).collect();
 +        let ctx = Context::default();
 +        let shared = super::shared(&ctx);
 +        shared.lock().unwrap().rect = Some(Rect::from_min_size(pos2(10.0, 10.0), vec2(100.0, 100.0)));
@@ -1808,7 +1815,7 @@ index 5d060f2..7e72e74 100644
      let mut out = doc.clone();
      out.insert_above(Some(target), l);
 diff --git a/crates/ui-egui/src/i18n/zh-hans.tsv b/crates/ui-egui/src/i18n/zh-hans.tsv
-index 3313412..8a7b67f 100644
+index 3313412..6f1b196 100644
 --- a/crates/ui-egui/src/i18n/zh-hans.tsv
 +++ b/crates/ui-egui/src/i18n/zh-hans.tsv
 @@ -1,4 +1,10 @@
@@ -1822,18 +1829,107 @@ index 3313412..8a7b67f 100644
  # context <TAB> English source <TAB> Simplified Chinese translation
  #
  # Empty context: plain UI text. @id: stable command ID. @plural: one|other source
-@@ -3199,3 +3205,6 @@ smartSvg	AI/PDF/EPS contents will be edited as SVG. Saving replaces the embedded
+@@ -3199,3 +3205,95 @@ smartSvg	AI/PDF/EPS contents will be edited as SVG. Saving replaces the embedded
  	Solid Color	纯色
  	Tint Color	色调颜色
  	Edit Brush…	编辑画笔…
 +
 +@id	tools.longCut.open	长图切割
 +	Long image cutter	长图切割
++
++# Userfull Tools language integration
++	Describe what to edit or generate…	描述要修改或生成的内容…
++	Drop reference images here · Multiple images supported; limits checked by Codex	拖入图片作为参考 · 支持多张，数量由 Codex 校验
++	Remove this reference image	移除此参考图
++	Reference images selected: {}	已选择 {} 张参考图
++	Loading reference images…	正在读取参考图…
++	Fill selection	局部修改
++	Remove object	移除物体
++	Generate image	生成图片
++	Reference images {} +	参考图 {} ＋
++	Select multiple images; refer to reference 1, reference 2, etc. in your prompt	一次选择多张图片；在提示词中用参考图1、参考图2指定用途
++	Please wait for the current task to finish	请等待当前任务完成
++	Local transfer memory limit exceeded; submit images in smaller batches	超过本地传输内存保护阈值，请分批提交
++	Invalid image selection	图片选择结果无效
++	Cannot read reference image: {}	参考图无法读取：{}
++	Reading selection…	正在读取选区…
++	Local Codex service is not configured	未配置本地 Codex 服务
++	Local authentication file is not configured	未配置本地认证文件
++	Cannot read local authentication file	无法读取本地认证文件
++	Invalid local authentication file	本地认证文件无效
++	Cannot connect to Codex service: {}	无法连接 Codex 服务：{}
++	Invalid response from Codex service	Codex 服务返回了无效响应
++	Codex request failed	Codex 请求失败
++	Processing…	处理中…
++	Generation timed out; check the local job logs	等待生成超时，请检查本地任务日志
++	Incompatible cutting plan	切割方案版本、图片尺寸不匹配或切割线过多
++	Cut must be inside the image	切割线必须位于图片内部
++	Auto-save failed: {}	自动保存失败：{}
++	Export worker stopped unexpectedly	导出任务意外结束
++	Canvas snapshot · Click/S: mark · Drag a line: move · Delete: remove nearby line · Ctrl+Z: undo	当前画布快照 · 点击或 S 标记 · 拖动红线调整 · Delete 删除附近线 · Ctrl+Z 撤销
++	Mark	标记
++	Import JSON	导入方案
++	Export JSON	导出方案
++	Export PNG ZIP	导出 PNG ZIP
++	Clear all cutting lines?	清空全部切割线？
++	Confirm	确认
++	Replace the current cutting plan?	替换当前方案？
++	{} × {} px · Slices: {} · {}	{} × {} px · {} 段 · {}
++	Encoding slices…	正在编码切图
++	Cutting plan is too large	切割方案过大
++	Ready	就绪
++	Invalid request parameters.	请求参数无效。
++	Enter an image description first.	请先输入画面描述。
++	An image generation task is already running.	已有生成任务正在运行。
++	The editor is not connected.	编辑器尚未连接。
++	The selection or document changed; submit the request again.	选区或文档已经改变，请重新点击生成。
++	Cancelled	已取消
++	Cancelled.	已取消。
++	Adding a new layer…	正在添加新图层…
++	Added as a new layer · elapsed {} s · Ctrl+Z to undo	已生成到新图层 · 本次耗时 {} 秒 · Ctrl+Z 撤销
++	Unauthenticated request rejected	拒绝未认证请求
++	Browser requests are not accepted	不接受网页请求
++	Unknown operation	未知操作
++	Request is too large	请求过大
++	Request must be an object	请求必须是对象
++	The image service blocked this output; no image was generated.	本次输出被生图服务的安全系统拦截，未生成图片。
++	The account has insufficient image-generation quota; no image was generated.	当前账号的生图额度不足，未生成图片。
++	Too many image-generation requests; try again later.	生图服务请求过多，请稍后再试。
++	Codex sign-in expired; sign in again.	Codex 登录已失效，请重新登录后再试。
++	The image-service connection timed out or was interrupted; check your network or try again later.	连接生图服务超时或中断，未返回图片，请检查网络或稍后重试。
++	The image service returned no image. Try again later; details are in the job logs.	生图服务未返回图片。请稍后重试，详情已保存到任务日志。
++	Codex CLI was not found. Install Node.js, run npm.cmd install -g @openai/codex, and restart.	未找到本机 Codex CLI。请安装 Node.js 后运行 npm.cmd install -g @openai/codex，再重新启动。
++	Invalid Codex proxy configuration; check runtime/codex-proxy.json.	Codex 代理配置无效，请检查 runtime/codex-proxy.json。
++	Processing image request	正在处理生图请求
++	Connection interrupted; reconnecting	连接中断，正在重连
++	Switching to the fallback connection	正在切换备用连接
++	Generating image	正在生成图像
++	Image received; importing…	图像已返回，正在导入…
++	{} · waiting {} s	{} · 已等待 {} 秒
++	Generation exceeded three minutes; check your network or try again later.	生成超过 3 分钟，已停止等待。请检查网络或稍后重试。
++	Invalid edit coordinate mapping.	编辑坐标映射无效。
++	The selection is empty.	选区为空。
++	Unknown mode	未知模式
++	Enter an image description.	请输入画面描述。
++	Feather radius must be between 0 and 64 pixels.	边缘羽化应为 0–64 像素。
++	Open an image in the PhotoCraft editor first.	请先在配套 PhotoCraft 窗口打开图片。
++	Select an area with a marquee or lasso first.	请先使用框选或套索选择要修改的区域。
++	The original document changed or closed. The result was saved but not imported; undo the changes or import it manually.	原文档已改变或关闭。结果已保存，未导入；请撤销改动后重试，或手动导入。
++	Reference images must be a list.	参考图片参数必须为列表。
++	Invalid reference-image parameters.	参考图参数无效。
++	Invalid reference-image name.	参考图名称无效。
++	Reference image exceeds the local 64 MiB transfer guard.	参考图超过本地传输保护阈值 64 MiB。
++	Reference images exceed the local 256 MiB transfer guard.	参考图超过本地传输保护阈值 256 MiB。
++	Invalid reference-image encoding.	参考图编码无效。
++	Reference image exceeds the local size guard.	参考图大小超出限制。
++	Reference image exceeds the local 100-million-pixel decode guard.	参考图超过本地解码保护阈值 1 亿像素。
++
++# Userfull Tools language integration
 diff --git a/crates/ui-egui/src/i18n/zh-hant.tsv b/crates/ui-egui/src/i18n/zh-hant.tsv
-index e95d706..df90cc8 100644
+index e95d706..100dd95 100644
 --- a/crates/ui-egui/src/i18n/zh-hant.tsv
 +++ b/crates/ui-egui/src/i18n/zh-hant.tsv
-@@ -3155,3 +3155,14 @@ smartSvg	AI/PDF/EPS contents will be edited as SVG. Saving replaces the embedded
+@@ -3155,3 +3155,103 @@ smartSvg	AI/PDF/EPS contents will be edited as SVG. Saving replaces the embedded
  	Solid Color	純色
  	Tint Color	色調顏色
  	Edit Brush…	編輯筆刷…
@@ -1848,6 +1944,95 @@ index e95d706..df90cc8 100644
 +
 +@id	tools.longCut.open	長圖切割
 +	Long image cutter	長圖切割
++
++# Userfull Tools language integration
++	Describe what to edit or generate…	描述要修改或生成的内容…
++	Drop reference images here · Multiple images supported; limits checked by Codex	拖入图片作为参考 · 支持多张，数量由 Codex 校验
++	Remove this reference image	移除此参考图
++	Reference images selected: {}	已选择 {} 张参考图
++	Loading reference images…	正在读取参考图…
++	Fill selection	局部修改
++	Remove object	移除物体
++	Generate image	生成图片
++	Reference images {} +	参考图 {} ＋
++	Select multiple images; refer to reference 1, reference 2, etc. in your prompt	一次选择多张图片；在提示词中用参考图1、参考图2指定用途
++	Please wait for the current task to finish	请等待当前任务完成
++	Local transfer memory limit exceeded; submit images in smaller batches	超过本地传输内存保护阈值，请分批提交
++	Invalid image selection	图片选择结果无效
++	Cannot read reference image: {}	参考图无法读取：{}
++	Reading selection…	正在读取选区…
++	Local Codex service is not configured	未配置本地 Codex 服务
++	Local authentication file is not configured	未配置本地认证文件
++	Cannot read local authentication file	无法读取本地认证文件
++	Invalid local authentication file	本地认证文件无效
++	Cannot connect to Codex service: {}	无法连接 Codex 服务：{}
++	Invalid response from Codex service	Codex 服务返回了无效响应
++	Codex request failed	Codex 请求失败
++	Processing…	处理中…
++	Generation timed out; check the local job logs	等待生成超时，请检查本地任务日志
++	Incompatible cutting plan	切割方案版本、图片尺寸不匹配或切割线过多
++	Cut must be inside the image	切割线必须位于图片内部
++	Auto-save failed: {}	自动保存失败：{}
++	Export worker stopped unexpectedly	导出任务意外结束
++	Canvas snapshot · Click/S: mark · Drag a line: move · Delete: remove nearby line · Ctrl+Z: undo	当前画布快照 · 点击或 S 标记 · 拖动红线调整 · Delete 删除附近线 · Ctrl+Z 撤销
++	Mark	标记
++	Import JSON	导入方案
++	Export JSON	导出方案
++	Export PNG ZIP	导出 PNG ZIP
++	Clear all cutting lines?	清空全部切割线？
++	Confirm	确认
++	Replace the current cutting plan?	替换当前方案？
++	{} × {} px · Slices: {} · {}	{} × {} px · {} 段 · {}
++	Encoding slices…	正在编码切图
++	Cutting plan is too large	切割方案过大
++	Ready	就绪
++	Invalid request parameters.	请求参数无效。
++	Enter an image description first.	请先输入画面描述。
++	An image generation task is already running.	已有生成任务正在运行。
++	The editor is not connected.	编辑器尚未连接。
++	The selection or document changed; submit the request again.	选区或文档已经改变，请重新点击生成。
++	Cancelled	已取消
++	Cancelled.	已取消。
++	Adding a new layer…	正在添加新图层…
++	Added as a new layer · elapsed {} s · Ctrl+Z to undo	已生成到新图层 · 本次耗时 {} 秒 · Ctrl+Z 撤销
++	Unauthenticated request rejected	拒绝未认证请求
++	Browser requests are not accepted	不接受网页请求
++	Unknown operation	未知操作
++	Request is too large	请求过大
++	Request must be an object	请求必须是对象
++	The image service blocked this output; no image was generated.	本次输出被生图服务的安全系统拦截，未生成图片。
++	The account has insufficient image-generation quota; no image was generated.	当前账号的生图额度不足，未生成图片。
++	Too many image-generation requests; try again later.	生图服务请求过多，请稍后再试。
++	Codex sign-in expired; sign in again.	Codex 登录已失效，请重新登录后再试。
++	The image-service connection timed out or was interrupted; check your network or try again later.	连接生图服务超时或中断，未返回图片，请检查网络或稍后重试。
++	The image service returned no image. Try again later; details are in the job logs.	生图服务未返回图片。请稍后重试，详情已保存到任务日志。
++	Codex CLI was not found. Install Node.js, run npm.cmd install -g @openai/codex, and restart.	未找到本机 Codex CLI。请安装 Node.js 后运行 npm.cmd install -g @openai/codex，再重新启动。
++	Invalid Codex proxy configuration; check runtime/codex-proxy.json.	Codex 代理配置无效，请检查 runtime/codex-proxy.json。
++	Processing image request	正在处理生图请求
++	Connection interrupted; reconnecting	连接中断，正在重连
++	Switching to the fallback connection	正在切换备用连接
++	Generating image	正在生成图像
++	Image received; importing…	图像已返回，正在导入…
++	{} · waiting {} s	{} · 已等待 {} 秒
++	Generation exceeded three minutes; check your network or try again later.	生成超过 3 分钟，已停止等待。请检查网络或稍后重试。
++	Invalid edit coordinate mapping.	编辑坐标映射无效。
++	The selection is empty.	选区为空。
++	Unknown mode	未知模式
++	Enter an image description.	请输入画面描述。
++	Feather radius must be between 0 and 64 pixels.	边缘羽化应为 0–64 像素。
++	Open an image in the PhotoCraft editor first.	请先在配套 PhotoCraft 窗口打开图片。
++	Select an area with a marquee or lasso first.	请先使用框选或套索选择要修改的区域。
++	The original document changed or closed. The result was saved but not imported; undo the changes or import it manually.	原文档已改变或关闭。结果已保存，未导入；请撤销改动后重试，或手动导入。
++	Reference images must be a list.	参考图片参数必须为列表。
++	Invalid reference-image parameters.	参考图参数无效。
++	Invalid reference-image name.	参考图名称无效。
++	Reference image exceeds the local 64 MiB transfer guard.	参考图超过本地传输保护阈值 64 MiB。
++	Reference images exceed the local 256 MiB transfer guard.	参考图超过本地传输保护阈值 256 MiB。
++	Invalid reference-image encoding.	参考图编码无效。
++	Reference image exceeds the local size guard.	参考图大小超出限制。
++	Reference image exceeds the local 100-million-pixel decode guard.	参考图超过本地解码保护阈值 1 亿像素。
++
++# Userfull Tools language integration
 diff --git a/crates/ui-egui/src/input/shortcuts.rs b/crates/ui-egui/src/input/shortcuts.rs
 index 509bfbd..8176aa4 100644
 --- a/crates/ui-egui/src/input/shortcuts.rs
@@ -1861,19 +2046,20 @@ index 509bfbd..8176aa4 100644
      if !held {
          ctx.data_mut(|d| d.remove_temp::<std::collections::BTreeSet<Key>>(forwarded_down_id()));
 diff --git a/crates/ui-egui/src/lib.rs b/crates/ui-egui/src/lib.rs
-index e17b2bc..194f286 100644
+index e17b2bc..29d34a2 100644
 --- a/crates/ui-egui/src/lib.rs
 +++ b/crates/ui-egui/src/lib.rs
-@@ -26,6 +26,8 @@ macro_rules! tl {
+@@ -26,6 +26,9 @@ macro_rules! tl {
  }
  mod brush_mode_menu;
  pub mod canvas;
 +pub mod codex_ai;
++mod plugin_i18n;
 +pub mod long_cut;
  pub mod control;
  pub mod dialogs;
  pub mod dock;
-@@ -670,6 +672,7 @@ pub struct PhotocraftApp {
+@@ -670,6 +673,7 @@ pub struct PhotocraftApp {
      pub(crate) discard: Option<discard_ui::Prompt>,
      /// The Open or Save dialog in progress, and the action waiting on it (see `file_dialog`).
      pub(crate) file_dialog: Option<file_dialog::Pending>,
@@ -1883,11 +2069,13 @@ index e17b2bc..194f286 100644
      /// Where each document was last saved or exported to through a dialog (#1826): its next Save
 diff --git a/crates/ui-egui/src/long_cut.rs b/crates/ui-egui/src/long_cut.rs
 new file mode 100644
-index 0000000..a466fdc
+index 0000000..12e1973
 --- /dev/null
 +++ b/crates/ui-egui/src/long_cut.rs
-@@ -0,0 +1,565 @@
+@@ -0,0 +1,566 @@
 +//! Independently implemented long-image cutter. No LongPicCutter source is included.
++use crate::plugin_i18n::text as l;
++macro_rules! pt { ($($arg:tt)*) => { crate::plugin_i18n::text(&format!($($arg)*)) }; }
 +use crate::PhotocraftApp;
 +use serde::{Deserialize, Serialize};
 +use serde_json::{Value, json};
@@ -1922,10 +2110,10 @@ index 0000000..a466fdc
 +    }
 +    fn validate(&mut self, width: u32, height: u32) -> Result<(), String> {
 +        if self.version != 1 || self.width != width || self.height != height || self.cuts.len() > MAX_CUTS {
-+            return Err("切割方案版本、图片尺寸不匹配或切割线过多 / Incompatible cutting plan".into());
++            return Err(l("Incompatible cutting plan"));
 +        }
 +        if self.cuts.iter().any(|&y| y == 0 || y >= height) {
-+            return Err("切割线必须位于图片内部 / Cut is outside the image".into());
++            return Err(l("Cut must be inside the image"));
 +        }
 +        self.cuts.sort_unstable();
 +        self.cuts.dedup();
@@ -1960,7 +2148,7 @@ index 0000000..a466fdc
 +    use std::hash::{Hash, Hasher};
 +    let mut h = std::collections::hash_map::DefaultHasher::new();
 +    (width, height, pixels).hash(&mut h);
-+    std::env::var_os("PHOTOCRAFT_CONFIG_DIR").map(|p| std::path::PathBuf::from(p).join("long-cut").join(format!("{:016x}.json", h.finish())))
++    std::env::var_os("PHOTOCRAFT_CONFIG_DIR").map(|p| std::path::PathBuf::from(p).join("long-cut").join(pt!("{:016x}.json", h.finish())))
 +}
 +
 +pub fn open(app: &mut PhotocraftApp) -> Result<Value, String> {
@@ -2019,7 +2207,7 @@ index 0000000..a466fdc
 +                std::fs::write(path, bytes).map_err(|e| e.to_string())
 +            })();
 +            if let Err(e) = result {
-+                self.message = format!("自动保存失败 / Auto-save failed: {e}");
++                self.message = pt!("Auto-save failed: {e}");
 +            }
 +        }
 +    }
@@ -2068,7 +2256,7 @@ index 0000000..a466fdc
 +                state.export = None;
 +            }
 +            Err(mpsc::TryRecvError::Disconnected) => {
-+                state.message = "导出任务意外结束 / Export worker stopped".into();
++                state.message = l("Export worker stopped unexpectedly");
 +                state.export = None;
 +            }
 +            Err(mpsc::TryRecvError::Empty) => {
@@ -2078,7 +2266,7 @@ index 0000000..a466fdc
 +    }
 +    let screen = ctx.content_rect();
 +    let size = egui::vec2((screen.width() - 40.0).max(240.0), (screen.height() - 100.0).max(220.0));
-+    let mut window = egui::Window::new("长图切割 / Long image cutter")
++    let mut window = egui::Window::new(l("Long image cutter"))
 +        .id(egui::Id::unique(if state.maximized { "long-cut-max" } else { "long-cut-large" }))
 +        .open(&mut opened)
 +        .default_pos(screen.min + egui::vec2(20.0, 20.0))
@@ -2091,66 +2279,65 @@ index 0000000..a466fdc
 +        ));
 +    }
 +    window.show(ctx, |ui| {
-+        ui.label("当前画布快照 · 点击或 S 标记 · 拖动红线调整 · Delete 删除附近线 · Ctrl+Z 撤销");
-+        ui.label("Snapshot of current canvas · Click/S: mark · Drag line: move · Delete: remove · Ctrl+Z: undo");
++        ui.label(l("Canvas snapshot · Click/S: mark · Drag a line: move · Delete: remove nearby line · Ctrl+Z: undo"));
 +        ui.horizontal_wrapped(|ui| {
-+            if ui.button(if state.maximized { "还原 / Restore" } else { "最大化 / Maximize" }).clicked() {
++            if ui.button(if state.maximized { l("Restore") } else { l("Maximize") }).clicked() {
 +                state.maximized = !state.maximized;
 +            }
-+            if ui.button("标记 / Mark").clicked()
++            if ui.button(l("Mark")).clicked()
 +                && let Some(y) = state.hover
 +            {
 +                state.add(y);
 +            }
-+            if ui.add_enabled(!state.undo.is_empty(), egui::Button::new("撤销 / Undo")).clicked() {
++            if ui.add_enabled(!state.undo.is_empty(), egui::Button::new(l("Undo"))).clicked() {
 +                action = "undo";
 +            }
-+            if ui.button("清空 / Clear").clicked() {
++            if ui.button(l("Clear")).clicked() {
 +                state.confirm_clear = true;
 +            }
-+            if ui.button("导入方案 / Import JSON").clicked() {
++            if ui.button(l("Import JSON")).clicked() {
 +                action = "import";
 +            }
-+            if ui.button("导出方案 / Export JSON").clicked() {
++            if ui.button(l("Export JSON")).clicked() {
 +                action = "plan";
 +            }
-+            if ui.add_enabled(state.export.is_none(), egui::Button::new("导出 PNG ZIP / Export ZIP")).clicked() {
++            if ui.add_enabled(state.export.is_none(), egui::Button::new(l("Export PNG ZIP"))).clicked() {
 +                action = "zip";
 +            }
 +        });
 +        if state.confirm_clear {
 +            ui.horizontal(|ui| {
-+                ui.label("清空全部切割线？ / Clear all cuts?");
-+                if ui.button("确认 / Confirm").clicked() {
++                ui.label(l("Clear all cutting lines?"));
++                if ui.button(l("Confirm")).clicked() {
 +                    state.remember();
 +                    state.plan.cuts.clear();
 +                    state.persist();
 +                    state.confirm_clear = false;
 +                }
-+                if ui.button("取消 / Cancel").clicked() {
++                if ui.button(l("Cancel")).clicked() {
 +                    state.confirm_clear = false;
 +                }
 +            });
 +        }
 +        if state.confirm_import.is_some() {
 +            ui.horizontal(|ui| {
-+                ui.label("替换当前方案？ / Replace current cuts?");
-+                if ui.button("替换 / Replace").clicked() {
++                ui.label(l("Replace the current cutting plan?"));
++                if ui.button(l("Replace")).clicked() {
 +                    state.remember();
 +                    if let Some(plan) = state.confirm_import.take() {
 +                        state.plan = plan;
 +                    }
 +                    state.persist();
 +                }
-+                if ui.button("取消 / Cancel").clicked() {
++                if ui.button(l("Cancel")).clicked() {
 +                    state.confirm_import = None;
 +                }
 +            });
 +        }
-+        ui.label(format!("{} × {} px · {} 段 / pieces · {}", state.plan.width, state.plan.height, state.plan.cuts.len() + 1, state.message));
++        ui.label(pt!("{} × {} px · Slices: {} · {}", state.plan.width, state.plan.height, state.plan.cuts.len() + 1, state.message));
 +        if state.export.is_some() {
 +            ui.spinner();
-+            ui.label("正在编码切图 / Encoding slices…");
++            ui.label(l("Encoding slices…"));
 +        }
 +        let texture = state.texture(ctx).id();
 +        let width = (ui.available_width() - 18.0).max(100.0);
@@ -2191,7 +2378,7 @@ index 0000000..a466fdc
 +                }
 +                let py = rect.top() + y as f32 / state.plan.height as f32 * height;
 +                ui.painter().hline(rect.x_range(), py, egui::Stroke::new(1.0, egui::Color32::LIGHT_BLUE));
-+                response.clone().on_hover_text(format!("y = {y} px"));
++                response.clone().on_hover_text(pt!("y = {y} px"));
 +            }
 +            if response.drag_stopped() && state.drag.take().is_some() {
 +                state.undo.push(std::mem::take(&mut state.drag_before));
@@ -2241,7 +2428,7 @@ index 0000000..a466fdc
 +    let result = if action == "import" {
 +        app.pick_file_bytes_filtered(&["json"], |app, _, bytes| {
 +            if bytes.len() > 65536 {
-+                return Err("切割方案过大 / Plan too large".into());
++                return Err(l("Cutting plan is too large"));
 +            }
 +            let state = app.long_cut.as_mut().ok_or("Cutter was closed")?;
 +            let plan = Plan::parse(&bytes, state.plan.width, state.plan.height)?;
@@ -2286,7 +2473,7 @@ index 0000000..a466fdc
 +        if output.len() + bytes.len() > 512 * 1024 * 1024 {
 +            return Err("ZIP exceeds 512 MiB limit".into());
 +        }
-+        let name = format!("slice-{:03}.png", index + 1);
++        let name = pt!("slice-{:03}.png", index + 1);
 +        let offset = output.len() as u32;
 +        let size = bytes.len() as u32;
 +        let mut crc = flate2::Crc::new();
@@ -2728,6 +2915,221 @@ index fd760ec..cb606e0 100644
 +        assert_eq!(*copied.lock().unwrap(), Some((16, 12, 16 * 12 * 4)));
 +        assert_eq!(app.session.active().unwrap().revision, revision);
 +        assert!(!app.ui.status_error);
++    }
++}
+diff --git a/crates/ui-egui/src/plugin_i18n.rs b/crates/ui-egui/src/plugin_i18n.rs
+new file mode 100644
+index 0000000..b400aa0
+--- /dev/null
++++ b/crates/ui-egui/src/plugin_i18n.rs
+@@ -0,0 +1,209 @@
++//! Custom tools share the editor's active language and translation catalogs.
++pub(crate) fn text(source: &str) -> String {
++    translate(&canonical(source, 0), 0)
++}
++fn translate(source: &str, depth: u8) -> String {
++    let lang = crate::i18n::current();
++    let direct = crate::i18n::tr(lang, source);
++    if direct != source {
++        return direct.to_owned();
++    }
++    if depth > 3 {
++        return source.to_owned();
++    }
++    for template in TEMPLATES {
++        if let Some(values) = capture(template, source) {
++            let translated = crate::i18n::tr(lang, template);
++            let mut pieces = translated.split("{}");
++            let mut result = pieces.next().unwrap_or("").to_owned();
++            for (value, part) in values.iter().zip(pieces) {
++                result.push_str(&translate(value, depth + 1));
++                result.push_str(part);
++            }
++            return result;
++        }
++    }
++    source.to_owned()
++}
++fn capture<'a>(pattern: &str, source: &'a str) -> Option<Vec<&'a str>> {
++    let parts: Vec<_> = pattern.split("{}").collect();
++    let mut remaining = source.strip_prefix(parts[0])?;
++    let mut values = Vec::new();
++    for (index, part) in parts.iter().enumerate().skip(1) {
++        if index == parts.len() - 1 {
++            values.push(remaining.strip_suffix(part)?);
++            remaining = "";
++        } else {
++            let at = remaining.find(part)?;
++            values.push(&remaining[..at]);
++            remaining = &remaining[at + part.len()..];
++        }
++    }
++    if remaining.is_empty() { Some(values) } else { None }
++}
++const TEMPLATES: &[&str] = &[
++    "Reference images selected: {}",
++    "Reference images {} +",
++    "Cannot read reference image: {}",
++    "Cannot connect to Codex service: {}",
++    "Auto-save failed: {}",
++    "{} × {} px · Slices: {} · {}",
++    "Added as a new layer · elapsed {} s · Ctrl+Z to undo",
++    "{} · waiting {} s",
++];
++
++fn canonical(source: &str, depth: u8) -> String {
++    if depth > 3 {
++        return source.to_owned();
++    }
++    for (chinese, english) in PAIRS {
++        if source == *chinese {
++            return english.to_string();
++        }
++        if chinese.contains("{}")
++            && let Some(values) = capture(chinese, source)
++        {
++            let mut pieces = english.split("{}");
++            let mut out = pieces.next().unwrap_or("").to_owned();
++            for (value, part) in values.iter().zip(pieces) {
++                out.push_str(&canonical(value, depth + 1));
++                out.push_str(part);
++            }
++            return out;
++        }
++    }
++    source.to_owned()
++}
++const PAIRS: &[(&str, &str)] = &[
++    ("描述要修改或生成的内容…", "Describe what to edit or generate…"),
++    ("拖入图片作为参考 · 支持多张，数量由 Codex 校验", "Drop reference images here · Multiple images supported; limits checked by Codex"),
++    ("移除此参考图", "Remove this reference image"),
++    ("已选择 {} 张参考图", "Reference images selected: {}"),
++    ("正在读取参考图…", "Loading reference images…"),
++    ("局部修改", "Fill selection"),
++    ("移除物体", "Remove object"),
++    ("生成图片", "Generate image"),
++    ("参考图 {} ＋", "Reference images {} +"),
++    ("一次选择多张图片；在提示词中用参考图1、参考图2指定用途", "Select multiple images; refer to reference 1, reference 2, etc. in your prompt"),
++    ("取消", "Cancel"),
++    ("请等待当前任务完成", "Please wait for the current task to finish"),
++    ("超过本地传输内存保护阈值，请分批提交", "Local transfer memory limit exceeded; submit images in smaller batches"),
++    ("图片选择结果无效", "Invalid image selection"),
++    ("参考图无法读取：{}", "Cannot read reference image: {}"),
++    ("正在读取选区…", "Reading selection…"),
++    ("未配置本地 Codex 服务", "Local Codex service is not configured"),
++    ("未配置本地认证文件", "Local authentication file is not configured"),
++    ("无法读取本地认证文件", "Cannot read local authentication file"),
++    ("本地认证文件无效", "Invalid local authentication file"),
++    ("无法连接 Codex 服务：{}", "Cannot connect to Codex service: {}"),
++    ("Codex 服务返回了无效响应", "Invalid response from Codex service"),
++    ("Codex 请求失败", "Codex request failed"),
++    ("处理中…", "Processing…"),
++    ("等待生成超时，请检查本地任务日志", "Generation timed out; check the local job logs"),
++    ("切割方案版本、图片尺寸不匹配或切割线过多", "Incompatible cutting plan"),
++    ("切割线必须位于图片内部", "Cut must be inside the image"),
++    ("自动保存失败：{}", "Auto-save failed: {}"),
++    ("导出任务意外结束", "Export worker stopped unexpectedly"),
++    ("长图切割", "Long image cutter"),
++    (
++        "当前画布快照 · 点击或 S 标记 · 拖动红线调整 · Delete 删除附近线 · Ctrl+Z 撤销",
++        "Canvas snapshot · Click/S: mark · Drag a line: move · Delete: remove nearby line · Ctrl+Z: undo",
++    ),
++    ("还原", "Restore"),
++    ("最大化", "Maximize"),
++    ("标记", "Mark"),
++    ("撤销", "Undo"),
++    ("清空", "Clear"),
++    ("导入方案", "Import JSON"),
++    ("导出方案", "Export JSON"),
++    ("导出 PNG ZIP", "Export PNG ZIP"),
++    ("清空全部切割线？", "Clear all cutting lines?"),
++    ("确认", "Confirm"),
++    ("取消", "Cancel"),
++    ("替换当前方案？", "Replace the current cutting plan?"),
++    ("替换", "Replace"),
++    ("{} × {} px · {} 段 / pieces · {}", "{} × {} px · Slices: {} · {}"),
++    ("正在编码切图", "Encoding slices…"),
++    ("切割方案过大", "Cutting plan is too large"),
++    ("就绪", "Ready"),
++    ("请求参数无效。", "Invalid request parameters."),
++    ("请先输入画面描述。", "Enter an image description first."),
++    ("已有生成任务正在运行。", "An image generation task is already running."),
++    ("编辑器尚未连接。", "The editor is not connected."),
++    ("选区或文档已经改变，请重新点击生成。", "The selection or document changed; submit the request again."),
++    ("已取消", "Cancelled"),
++    ("已取消。", "Cancelled."),
++    ("正在添加新图层…", "Adding a new layer…"),
++    ("已生成到新图层 · 本次耗时 {} 秒 · Ctrl+Z 撤销", "Added as a new layer · elapsed {} s · Ctrl+Z to undo"),
++    ("拒绝未认证请求", "Unauthenticated request rejected"),
++    ("不接受网页请求", "Browser requests are not accepted"),
++    ("未知操作", "Unknown operation"),
++    ("请求过大", "Request is too large"),
++    ("请求必须是对象", "Request must be an object"),
++    ("本次输出被生图服务的安全系统拦截，未生成图片。", "The image service blocked this output; no image was generated."),
++    ("当前账号的生图额度不足，未生成图片。", "The account has insufficient image-generation quota; no image was generated."),
++    ("生图服务请求过多，请稍后再试。", "Too many image-generation requests; try again later."),
++    ("Codex 登录已失效，请重新登录后再试。", "Codex sign-in expired; sign in again."),
++    (
++        "连接生图服务超时或中断，未返回图片，请检查网络或稍后重试。",
++        "The image-service connection timed out or was interrupted; check your network or try again later.",
++    ),
++    ("生图服务未返回图片。请稍后重试，详情已保存到任务日志。", "The image service returned no image. Try again later; details are in the job logs."),
++    (
++        "未找到本机 Codex CLI。请安装 Node.js 后运行 npm.cmd install -g @openai/codex，再重新启动。",
++        "Codex CLI was not found. Install Node.js, run npm.cmd install -g @openai/codex, and restart.",
++    ),
++    ("Codex 代理配置无效，请检查 runtime/codex-proxy.json。", "Invalid Codex proxy configuration; check runtime/codex-proxy.json."),
++    ("正在处理生图请求", "Processing image request"),
++    ("连接中断，正在重连", "Connection interrupted; reconnecting"),
++    ("正在切换备用连接", "Switching to the fallback connection"),
++    ("正在生成图像", "Generating image"),
++    ("图像已返回，正在导入…", "Image received; importing…"),
++    ("{} · 已等待 {} 秒", "{} · waiting {} s"),
++    ("生成超过 3 分钟，已停止等待。请检查网络或稍后重试。", "Generation exceeded three minutes; check your network or try again later."),
++    ("编辑坐标映射无效。", "Invalid edit coordinate mapping."),
++    ("选区为空。", "The selection is empty."),
++    ("未知模式", "Unknown mode"),
++    ("请输入画面描述。", "Enter an image description."),
++    ("边缘羽化应为 0–64 像素。", "Feather radius must be between 0 and 64 pixels."),
++    ("请先在配套 PhotoCraft 窗口打开图片。", "Open an image in the PhotoCraft editor first."),
++    ("请先使用框选或套索选择要修改的区域。", "Select an area with a marquee or lasso first."),
++    (
++        "原文档已改变或关闭。结果已保存，未导入；请撤销改动后重试，或手动导入。",
++        "The original document changed or closed. The result was saved but not imported; undo the changes or import it manually.",
++    ),
++    ("参考图片参数必须为列表。", "Reference images must be a list."),
++    ("参考图参数无效。", "Invalid reference-image parameters."),
++    ("参考图名称无效。", "Invalid reference-image name."),
++    ("参考图超过本地传输保护阈值 64 MiB。", "Reference image exceeds the local 64 MiB transfer guard."),
++    ("参考图超过本地传输保护阈值 256 MiB。", "Reference images exceed the local 256 MiB transfer guard."),
++    ("参考图编码无效。", "Invalid reference-image encoding."),
++    ("参考图大小超出限制。", "Reference image exceeds the local size guard."),
++    ("参考图超过本地解码保护阈值 1 亿像素。", "Reference image exceeds the local 100-million-pixel decode guard."),
++];
++
++#[cfg(test)]
++mod tests {
++    #[test]
++    fn translations_preserve_dynamic_fields() {
++        for code in ["zh-hans", "zh-hant"] {
++            let lang = crate::i18n::Lang::from_code(code).unwrap();
++            for template in super::TEMPLATES {
++                assert_eq!(template.matches("{}").count(), crate::i18n::tr(lang, template).matches("{}").count(), "{code}: {template}");
++            }
++        }
++    }
++    #[test]
++    fn language_switch_updates_existing_dynamic_messages() {
++        let zh = crate::i18n::Lang::from_code("zh-hans").unwrap();
++        crate::i18n::with_language(zh, || {
++            assert_eq!(super::text("Fill selection"), "局部修改");
++            assert_eq!(super::text("Reference images selected: 5"), "已选择 5 张参考图");
++            assert_eq!(super::text("Processing image request · waiting 48 s"), "正在处理生图请求 · 已等待 48 秒");
++        });
++        crate::i18n::with_language(crate::i18n::Lang::EN, || {
++            assert_eq!(super::text("已选择 5 张参考图"), "Reference images selected: 5");
++            assert_eq!(super::text("Long image cutter"), "Long image cutter");
++        });
 +    }
 +}
 diff --git a/crates/ui-egui/src/state.rs b/crates/ui-egui/src/state.rs
