@@ -4,6 +4,12 @@
 
 **Unified build:** the latest merged source lives in [photocraft-codex-ai](https://github.com/kaliwell/photocraft-codex-ai). One PhotoCraft 0.20.1 hosts Codex AI, references, the cutter and clipboard export. No new package is published for this merge; v0.3.8 below is the earlier standalone release.
 
+[中文功能使用图](https://github.com/kaliwell/photocraft-codex-ai/blob/main/docs/usage-zh.md) · [English illustrated guide](https://github.com/kaliwell/photocraft-codex-ai/blob/main/docs/usage-en.md)
+
+> Screenshots in these guides show the unified development build; they do not describe every feature in the standalone v0.3.8 ZIP.
+
+> 使用图展示的是统一开发版，不代表独立 v0.3.8 ZIP 包含其中全部功能。
+
 **Native PhotoCraft tools with Codex AI, long-image slicing, and clipboard export.**
 
 **PhotoCraft 原生增强工具：Codex AI、长图切割和剪贴板导出。**
